@@ -1,7 +1,5 @@
 # Career-E-Sandbox
-
-## Overview
-Career E-Sandbox takes results from popular personality tests and gives you visibility into career paths for your profile.
+A web application that takes results from popular personality tests and gives you visibility into career paths for your profile.
 
 ## Website URL:
 To be added later.
