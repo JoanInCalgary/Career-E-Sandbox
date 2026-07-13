@@ -7,21 +7,27 @@
 
   /* Pure white */
   --color-white: #FFFFFF;
+
+  /* Warm off-white — the app's background surface everywhere */
+  --color-cream: #fdf9f8;
+
+  /* Soft black — used for accents, borders, and interactive states (80% opacity) */
+  --color-ink: #000c;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 
 body {
-  background-color: #FFFFFF;
+  background-color: #fdf9f8;
   color: #111111;
   font-family: var(--font-sans, Geist, sans-serif);
   font-size: 15px;
   line-height: 1.6;
 }
 
-/* Big display headings: Instrument Serif (editorial, no faux-bold) */
+/* Big display headings: Fraunces (editorial, no faux-bold) */
 h1, h2 {
-  font-family: var(--font-display, "Instrument Serif", serif);
+  font-family: var(--font-display, "Fraunces", serif);
   font-weight: 400;
   line-height: 1.15;
 }

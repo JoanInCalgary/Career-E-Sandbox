@@ -1,38 +1,25 @@
+"use client";
+
 import Link from "next/link";
+import { Brain, SlidersHorizontal, Sparkle, ArrowRight } from "@phosphor-icons/react";
 import LandingNav from "@/src/components/LandingNav";
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
 function IconBrain() {
-  return (
-    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15M14.25 3.104c.251.023.501.05.75.082M19.8 15l-3.22-3.22A2.25 2.25 0 0015 10.22V3.104M19.8 15a2.25 2.25 0 01.45 2.247A10.5 10.5 0 0112 21a10.5 10.5 0 01-8.25-3.753 2.25 2.25 0 01.45-2.247L7.5 13.5m4.5 0l-1.5 1.5m4.5-1.5l1.5 1.5" />
-    </svg>
-  );
+  return <Brain weight="light" className="w-6 h-6" />;
 }
 
 function IconSliders() {
-  return (
-    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-    </svg>
-  );
+  return <SlidersHorizontal weight="light" className="w-6 h-6" />;
 }
 
 function IconSparkle() {
-  return (
-    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
-    </svg>
-  );
+  return <Sparkle weight="light" className="w-6 h-6" />;
 }
 
 function IconArrowRight() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
-    </svg>
-  );
+  return <ArrowRight weight="bold" className="w-4 h-4" />;
 }
 
 // ── Data ───────────────────────────────────────────────────────────────────────
@@ -80,7 +67,7 @@ const RESULTS_CALLOUTS = [
 
 function ResultsPreviewMock() {
   return (
-    <div className="rounded-2xl border border-[#E8E8E8] overflow-hidden bg-white shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
+    <div className="rounded-2xl border border-[#E8E8E8] overflow-hidden bg-cream shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
       {/* Browser chrome */}
       <div className="flex items-center gap-2 px-4 py-2.5 bg-[#F5F5F5] border-b border-[#E8E8E8]">
         <span className="w-2.5 h-2.5 rounded-full bg-[#FFAAAA]" />
@@ -99,8 +86,8 @@ function ResultsPreviewMock() {
         </div>
 
         {/* Primary card */}
-        <div className="rounded-xl border border-[#E8E8E8] overflow-hidden mb-2 bg-white">
-          <div className="h-1 bg-[#111111]" />
+        <div className="rounded-xl border border-[#E8E8E8] overflow-hidden mb-2 bg-cream">
+          <div className="h-1 bg-[#000c]" />
           <div className="p-3">
             <div className="flex items-center gap-2 mb-1.5">
               <span
@@ -128,8 +115,8 @@ function ResultsPreviewMock() {
             { pct: "89%", title: "UX Researcher" },
             { pct: "85%", title: "Curriculum Designer" },
           ].map((card) => (
-            <div key={card.title} className="rounded-xl border border-[#E8E8E8] overflow-hidden bg-white">
-              <div className="h-0.5 bg-[#111111]" />
+            <div key={card.title} className="rounded-xl border border-[#E8E8E8] overflow-hidden bg-cream">
+              <div className="h-0.5 bg-[#000c]" />
               <div className="p-2">
                 <span
                   className="text-[8px] font-bold text-white px-1.5 py-0.5 rounded-full"
@@ -144,7 +131,7 @@ function ResultsPreviewMock() {
         </div>
 
         {/* Floating pill mockup */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white border border-[#E8E8E8] rounded-full shadow-md flex items-center gap-0 overflow-hidden h-9">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-cream border border-[#E8E8E8] rounded-full shadow-md flex items-center gap-0 overflow-hidden h-9">
           <span className="text-[8px] text-[#555555] font-medium px-3 whitespace-nowrap">INFJ · Explorer</span>
           <span className="w-px h-full bg-[#E8E8E8]" />
           <span className="text-[8px] text-[#555555] font-medium px-3 whitespace-nowrap">Gemini</span>
@@ -165,7 +152,7 @@ function ResultsPreviewMock() {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <LandingNav />
 
       {/* ══ Hero ════════════════════════════════════════════════════════════════ */}
@@ -179,7 +166,7 @@ export default function LandingPage() {
             Personality → Career Match
           </p>
 
-          {/* Hero heading — Instrument Serif via h1 global rule */}
+          {/* Hero heading — Forum via h1 global rule */}
           <h1 className="text-4xl sm:text-5xl md:text-[3.5rem] text-[#111111] mb-6">
             What kind of work<br />
             actually lights you up?
@@ -201,7 +188,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className="text-sm text-[#888888] hover:text-[#111111] transition-colors underline underline-offset-4"
+              className="text-sm text-[#888888] hover:text-[#000c] transition-colors underline underline-offset-4"
             >
               Already have an account? Log in
             </Link>
@@ -226,7 +213,7 @@ export default function LandingPage() {
             {HOW_IT_WORKS.map((step) => (
               <div
                 key={step.step}
-                className="bg-white rounded-2xl border border-[#E8E8E8] p-7 hover:shadow-md hover:border-[#111111] transition-all"
+                className="bg-cream rounded-2xl border border-[#E8E8E8] p-7 hover:shadow-md hover:border-[#000c] transition-all"
               >
                 <div className="flex items-start justify-between mb-5">
                   <div className="w-11 h-11 rounded-xl bg-[#F5F5F5] flex items-center justify-center text-[#333333]">
@@ -269,7 +256,7 @@ export default function LandingPage() {
             {FRAMEWORKS.map((fw) => (
               <div
                 key={fw.name}
-                className="bg-white rounded-2xl border border-[#E8E8E8] p-4 hover:border-[#111111] hover:shadow-sm transition-all"
+                className="bg-cream rounded-2xl border border-[#E8E8E8] p-4 hover:border-[#000c] hover:shadow-sm transition-all"
               >
                 <p
                   className="text-[9px] font-bold uppercase tracking-widest text-[#888888] mb-1"
@@ -307,7 +294,7 @@ export default function LandingPage() {
               <div className="space-y-5 mb-8">
                 {RESULTS_CALLOUTS.map((item) => (
                   <div key={item.title} className="flex gap-3">
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#111111] shrink-0" />
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#000c] shrink-0" />
                     <div>
                       <p className="text-sm font-bold text-[#111111] mb-0.5">{item.title}</p>
                       <p className="text-sm text-[#555555] leading-relaxed">{item.body}</p>
@@ -332,7 +319,7 @@ export default function LandingPage() {
       </section>
 
       {/* ══ Footer ══════════════════════════════════════════════════════════════ */}
-      <footer className="py-12 px-6 bg-[#111111]">
+      <footer className="py-12 px-6 bg-[#000c]">
         <div className="max-w-2xl mx-auto text-center space-y-4">
           <p className="text-base font-bold text-white tracking-tight">Career-E-Sandbox</p>
           <p className="text-xs leading-relaxed max-w-md mx-auto text-[#666666]">

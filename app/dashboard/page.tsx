@@ -1,63 +1,65 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  TrendUp,
+  Minus,
+  TrendDown,
+  Briefcase,
+  ShieldCheck,
+  XCircle,
+  Trash,
+  MagnifyingGlass,
+  Bookmark,
+  User,
+  Clock,
+  PencilSimple,
+  Scales,
+} from "@phosphor-icons/react";
 import AppNav from "@/src/components/AppNav";
 import ModelComparisonPanel from "@/src/components/ModelComparisonPanel";
+import {
+  StyledSelect,
+  PillGroup,
+  BigFiveSlider,
+  FieldLabel,
+} from "@/src/components/AssessmentForm";
 import { DEFAULT_USER_EMAIL, DEFAULT_USER_NAME, useAuth } from "@/src/components/AuthProvider";
+import { getHistoryEntries, topRecommendedCareer, type ResultsHistoryEntry } from "@/src/lib/modelRuns";
+import { mbtiOptions } from "@/src/lib/mockData";
+import { getFavourites, removeFavourite, type FavouriteCareer } from "@/src/lib/favourites";
+import {
+  CLIFTON_STRENGTHS,
+  DISC_STYLES,
+  EDU_TARGET_LABELS,
+  ENNEAGRAM_OPTIONS,
+  ORG_OPTIONS,
+  SPARKETYPE_OPTIONS,
+  SUN_SIGNS,
+  TASK_DISLIKE_OPTIONS,
+  WORK_ENV_OPTIONS,
+  ZODIAC_ANIMALS,
+  ZODIAC_ELEMENTS,
+} from "@/src/lib/formOptions";
+import {
+  DEFAULT_PERSONALITY_PROFILE,
+  getPersonalityProfile,
+  savePersonalityProfile,
+  type PersonalityProfile,
+} from "@/src/lib/personalityProfile";
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+/** Max number of entries shown in the dashboard's compact Recent History list. */
+const RECENT_HISTORY_LIMIT = 3;
 
-const LAST_SEARCH_DATE = "Jun 12, 2026";
-
-const ASSESSMENT_SNAPSHOT = [
-  { label: "MBTI", value: "INTJ-A" },
-  { label: "Sparketype", value: "Maven · Sage · Anti: Advisor" },
-  { label: "Enneagram", value: "Type 5 — Investigator" },
-  { label: "DiSC", value: "Conscientiousness (C)" },
-  { label: "Big Five", value: "O:65 C:70 E:30 A:55 N:40" },
-  { label: "CliftonStrengths", value: "Strategic · Learner · Analytical · Ideation" },
-  { label: "Chinese Zodiac", value: "Dragon — Water" },
-  { label: "Astrology", value: "Scorpio" },
-];
-
-const PREFERENCE_SNAPSHOT = [
-  { label: "Work Environment", value: "Fully Remote" },
-  { label: "Target Education", value: "Master's Degree" },
-  { label: "Task Dislikes", value: "Cold Outreach / Sales · Repetitive Manual Tasks" },
-  { label: "Org Structure", value: "Hierarchical" },
-];
-
-const RECENT_HISTORY = [
-  {
-    id: "run-001",
-    date: "Jun 12, 2026",
-    time: "2:34 PM",
-    mbti: "INTJ-A",
-    workEnv: "Fully Remote",
-    topMatch: "Data Scientist / Systems Architect",
-    matchPercent: 94,
-  },
-  {
-    id: "run-002",
-    date: "Jun 8, 2026",
-    time: "10:15 AM",
-    mbti: "ENFP-A",
-    workEnv: "Hybrid",
-    topMatch: "UX Research Lead / Design Strategist",
-    matchPercent: 93,
-  },
-  {
-    id: "run-003",
-    date: "May 29, 2026",
-    time: "4:52 PM",
-    mbti: "INFJ-T",
-    workEnv: "Fully Remote",
-    topMatch: "Data Scientist / Systems Architect",
-    matchPercent: 91,
-  },
-];
+function formatHistoryTimestamp(ts: number): { date: string; time: string } {
+  const d = new Date(ts);
+  return {
+    date: d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+    time: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+  };
+}
 
 type FavItem = {
   id: string;
@@ -75,149 +77,48 @@ type FavItem = {
   cons: string[];
 };
 
-const INITIAL_FAVOURITES: FavItem[] = [
-  {
-    id: "fav-1",
-    careerSlug: "data-scientist",
-    title: "Data Scientist / Systems Architect",
-    sector: "TECHNOLOGY",
-    matchPercent: 94,
-    fromSearch: "Jun 12, 2026",
-    marketOutlook: "up",
-    marketLabel: "High Growth (18% YoY)",
-    salaryRange: "$110k – $180k",
-    educationRequired: "MS / PhD Preferred",
-    synergy: "Analytical systems thinking maps perfectly to ML pipeline and data architecture roles.",
-    pros: [
-      "Direct application of deep analytical and systems thinking",
-      "Strong remote-first culture across the field",
-      "Exceptional long-term salary trajectory",
-    ],
-    cons: [
-      "Requires continuous learning of rapidly evolving tools",
-      "Senior roles demand team leadership and communication",
-    ],
-  },
-  {
-    id: "fav-2",
-    careerSlug: "research-scientist",
-    title: "Research Scientist",
-    sector: "ACADEMIA / RESEARCH",
-    matchPercent: 88,
-    fromSearch: "Jun 12, 2026",
-    marketOutlook: "flat",
-    marketLabel: "Stable (3% YoY)",
-    salaryRange: "$80k – $130k",
-    educationRequired: "PhD Required",
-    synergy: "Independent deep-focus research aligns strongly with introverted, hypothesis-driven profiles.",
-    pros: [
-      "Deep intellectual autonomy with minimal external interruption",
-      "Publishing record builds lasting career equity",
-      "High alignment with values-driven work",
-    ],
-    cons: [
-      "Grant writing creates significant administrative overhead",
-      "Academic job market remains highly competitive",
-    ],
-  },
-  {
-    id: "fav-3",
-    careerSlug: "ux-research-lead",
-    title: "UX Research Lead / Design Strategist",
-    sector: "DESIGN / CREATIVE",
-    matchPercent: 93,
-    fromSearch: "Jun 8, 2026",
-    marketOutlook: "up",
-    marketLabel: "Growing (15% YoY)",
-    salaryRange: "$95k – $155k",
-    educationRequired: "BS / MS Preferred",
-    synergy: "Strategic pattern recognition and user empathy translate directly to research-led design.",
-    pros: [
-      "Blends analytical rigor with creative problem-solving",
-      "Cross-industry demand creates strong job security",
-      "Remote-compatible across most organisations",
-    ],
-    cons: [
-      "Requires regular stakeholder presentations",
-      "Tight deadlines in agency settings can be high pressure",
-    ],
-  },
-  {
-    id: "fav-4",
-    careerSlug: "management-consultant",
-    title: "Management Consultant",
-    sector: "BUSINESS / CONSULTING",
-    matchPercent: 81,
-    fromSearch: "May 29, 2026",
-    marketOutlook: "up",
-    marketLabel: "Growing (8% YoY)",
-    salaryRange: "$90k – $160k",
-    educationRequired: "MBA Preferred",
-    synergy: "Strategic systems thinking and structured problem-solving are core consulting competencies.",
-    pros: [
-      "Exposure to diverse industries accelerates strategic growth",
-      "Strong compensation and advancement trajectory",
-      "High intellectual variety across engagements",
-    ],
-    cons: [
-      "Extensive client travel and irregular hours",
-      "Significant interpersonal and presentation demands",
-    ],
-  },
-];
+/** Maps a stored favourite (full CareerMatch snapshot) to the dashboard card shape. */
+function toFavItem(entry: FavouriteCareer): FavItem {
+  const c = entry.career;
+  return {
+    id: c.id,
+    careerSlug: c.id,
+    title: c.title,
+    sector: c.sector,
+    matchPercent: c.matchPercent,
+    fromSearch: formatHistoryTimestamp(entry.savedAt).date,
+    marketOutlook: c.marketOutlook,
+    marketLabel: c.marketOutlookLabel,
+    salaryRange: c.salaryRange,
+    educationRequired: c.educationRequired,
+    synergy: c.keySynergy,
+    pros: c.pros,
+    cons: c.cons,
+  };
+}
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 function IconTrendUp() {
-  return (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-    </svg>
-  );
+  return <TrendUp weight="bold" className="w-3.5 h-3.5 shrink-0" />;
 }
 function IconTrendFlat() {
-  return (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-    </svg>
-  );
+  return <Minus weight="bold" className="w-3.5 h-3.5 shrink-0" />;
 }
 function IconTrendDown() {
-  return (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17H5m8 0l-8-8 4 4 6-6" />
-    </svg>
-  );
+  return <TrendDown weight="bold" className="w-3.5 h-3.5 shrink-0" />;
 }
 function IconBriefcase() {
-  return (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <rect x="2" y="7" width="20" height="14" rx="2" strokeWidth={2} />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
-    </svg>
-  );
+  return <Briefcase weight="bold" className="w-3.5 h-3.5 shrink-0" />;
 }
 function IconShield() {
-  return (
-    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-    </svg>
-  );
+  return <ShieldCheck weight="bold" className="w-3 h-3 shrink-0" />;
 }
 function IconXCircle() {
-  return (
-    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <circle cx="12" cy="12" r="10" strokeWidth={2} />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9l-6 6M9 9l6 6" />
-    </svg>
-  );
+  return <XCircle weight="bold" className="w-3 h-3 shrink-0" />;
 }
 function IconTrash() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  );
+  return <Trash weight="bold" className="w-3.5 h-3.5" />;
 }
 
 function MarketTrend({ outlook, label }: { outlook: FavItem["marketOutlook"]; label: string }) {
@@ -231,11 +132,34 @@ function MarketTrend({ outlook, label }: { outlook: FavItem["marketOutlook"]; la
   );
 }
 
+/**
+ * Maps a match % to a blue shade — deep blue at the top of the scale,
+ * progressively lighter as the score drops, with the most noticeable
+ * shift happening through the 80s.
+ */
+function matchColor(pct: number): string {
+  const p = Math.max(0, Math.min(100, pct));
+  let lightness: number;
+  if (p >= 90) {
+    // 90–100 → 42%–50%: stays close to the deep "top match" blue
+    lightness = 50 - ((p - 90) / 10) * 8;
+  } else if (p >= 80) {
+    // 80–90 → 50%–72%: the steepest, most noticeable step
+    lightness = 72 - ((p - 80) / 10) * 22;
+  } else if (p >= 60) {
+    // 60–80 → 72%–90%
+    lightness = 90 - ((p - 60) / 20) * 18;
+  } else {
+    lightness = 90;
+  }
+  return `hsl(220, 100%, ${lightness}%)`;
+}
+
 function MatchBadge({ pct }: { pct: number }) {
   return (
     <span
-      className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white bg-[#0055FF]"
-      style={{ fontFamily: "var(--font-mono, 'Geist Mono', monospace)" }}
+      className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white"
+      style={{ fontFamily: "var(--font-mono, 'Geist Mono', monospace)", backgroundColor: matchColor(pct) }}
     >
       {pct}% match
     </span>
@@ -249,7 +173,7 @@ function DashFavCard({ fav, onDelete }: { fav: FavItem; onDelete: (id: string) =
   const router = useRouter();
 
   return (
-    <div className="bg-white rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-shadow flex flex-col h-full overflow-hidden">
+    <div className="bg-cream rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
       {confirming ? (
         /* ── Confirmation state ── */
         <div className="flex flex-col items-center justify-center flex-1 min-h-[140px] text-center gap-3 p-4 py-6">
@@ -295,7 +219,7 @@ function DashFavCard({ fav, onDelete }: { fav: FavItem; onDelete: (id: string) =
           <button
             type="button"
             onClick={() => router.push(`/career/${fav.careerSlug}`)}
-            className="flex-1 text-left px-4 pb-4 flex flex-col hover:bg-[#F5F5F5] transition-colors"
+            className="flex-1 text-left px-4 pb-4 flex flex-col"
           >
             <h3 className="text-base font-bold text-[#111111] mb-3 leading-snug hover:text-[#FF5500] transition-colors">{fav.title}</h3>
 
@@ -356,14 +280,90 @@ export default function DashboardPage() {
   const name = user?.name ?? DEFAULT_USER_NAME;
   const email = user?.email ?? DEFAULT_USER_EMAIL;
 
-  const [favourites, setFavourites] = useState<FavItem[]>(INITIAL_FAVOURITES);
+  const [favourites, setFavourites] = useState<FavItem[]>([]);
+  const [favouritesHydrated, setFavouritesHydrated] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState<ResultsHistoryEntry[]>([]);
+  const [historyHydrated, setHistoryHydrated] = useState(false);
+  const [rightTab, setRightTab] = useState<"history" | "models">("history");
+
+  // ── Personality profile — shared with the Search page's generate bar ──
+  const [profile, setProfile] = useState<PersonalityProfile>(DEFAULT_PERSONALITY_PROFILE);
+  const [draftProfile, setDraftProfile] = useState<PersonalityProfile>(DEFAULT_PERSONALITY_PROFILE);
+  const [profileHydrated, setProfileHydrated] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+
+  useEffect(() => {
+    setFavourites(getFavourites().map(toFavItem));
+    setFavouritesHydrated(true);
+
+    setHistoryEntries(getHistoryEntries());
+    setHistoryHydrated(true);
+
+    const stored = getPersonalityProfile();
+    setProfile(stored);
+    setDraftProfile(stored);
+    setProfileHydrated(true);
+  }, []);
 
   function handleDelete(id: string) {
+    removeFavourite(id);
     setFavourites((prev) => prev.filter((f) => f.id !== id));
   }
 
+  function startEditingProfile() {
+    setDraftProfile(profile);
+    setEditingProfile(true);
+  }
+
+  function cancelEditingProfile() {
+    setDraftProfile(profile);
+    setEditingProfile(false);
+  }
+
+  function saveEditingProfile() {
+    savePersonalityProfile(draftProfile);
+    setProfile(draftProfile);
+    setEditingProfile(false);
+  }
+
+  function updateDraft<K extends keyof PersonalityProfile>(key: K, value: PersonalityProfile[K]) {
+    setDraftProfile((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function updateDraftStrength(i: number, v: string) {
+    setDraftProfile((prev) => {
+      const next = [...prev.strengths];
+      next[i] = v;
+      return { ...prev, strengths: next };
+    });
+  }
+
+  function updateDraftBigFive(trait: keyof PersonalityProfile["bigFive"], v: number) {
+    setDraftProfile((prev) => ({ ...prev, bigFive: { ...prev.bigFive, [trait]: v } }));
+  }
+
+  function toggleDraftTaskDislike(task: string) {
+    setDraftProfile((prev) => {
+      const has = prev.taskDislikes.includes(task);
+      return {
+        ...prev,
+        taskDislikes: has ? prev.taskDislikes.filter((t) => t !== task) : [...prev.taskDislikes, task],
+      };
+    });
+  }
+
+  const mbtiDisplay = `${profile.mbtiType}${profile.variant ? `-${profile.variant}` : ""}`;
+  const sparkDisplay = `${profile.primarySpark || "—"} · ${profile.secondarySpark || "—"} · Anti: ${
+    profile.antiSpark || "—"
+  }`;
+  const bigFiveDisplay = `O:${profile.bigFive.O} C:${profile.bigFive.C} E:${profile.bigFive.E} A:${profile.bigFive.A} N:${profile.bigFive.N}`;
+  const cliftonDisplay = profile.strengths.filter(Boolean).join(" · ") || "—";
+  const zodiacDisplay = `${profile.zodiacAnimal || "—"} — ${profile.zodiacElement || "—"}`;
+  const taskDislikesDisplay =
+    profile.taskDislikes.length > 0 ? profile.taskDislikes.join(" · ") : "None selected";
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <AppNav active="dashboard" />
 
       <main className="px-6 md:px-8 py-6 md:py-8">
@@ -383,22 +383,320 @@ export default function DashboardPage() {
             href="/search?restore=true"
             className="inline-flex items-center gap-2 self-start bg-[#FF5500] hover:bg-[#DD4400] transition-colors text-white font-semibold text-sm px-6 py-3 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <MagnifyingGlass weight="bold" className="w-4 h-4" />
             Search Again
           </Link>
         </div>
+
+        {/* ── Personality Profile — full width so editing doesn't cramp a narrow column ── */}
+        <section className="bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 mb-6">
+          <div className="flex items-center justify-between mb-0.5">
+            <div className="flex items-center gap-2">
+              <User weight="bold" className="w-4 h-4 text-[#FF5500]" />
+              <h2 className="text-sm font-bold text-[#111111]">Your Personality Profile</h2>
+            </div>
+            {profileHydrated && !editingProfile && (
+              <button
+                type="button"
+                onClick={startEditingProfile}
+                className="flex items-center gap-1 text-[11px] font-semibold text-[#FF5500] hover:underline shrink-0"
+              >
+                <PencilSimple weight="bold" className="w-3 h-3" />
+                Edit
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-[#888888] mb-4">
+            {editingProfile
+              ? "Changes here also update the Search page's generate bar."
+              : "Powers your career matches — synced with the Search page's generate bar."}
+          </p>
+
+          {!editingProfile ? (
+            <div className="grid grid-cols-1 sm:grid-cols-1">
+              <div>
+                <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Assessments</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                  {[
+                    { label: "MBTI", value: mbtiDisplay },
+                    { label: "Sparketype", value: sparkDisplay },
+                    { label: "Enneagram", value: profile.enneagramType || "—" },
+                    { label: "DiSC", value: profile.discStyle || "—" },
+                    { label: "Big Five", value: bigFiveDisplay },
+                    { label: "CliftonStrengths", value: cliftonDisplay },
+                    { label: "Chinese Zodiac", value: zodiacDisplay },
+                    { label: "Astrology", value: profile.sunSign || "—" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-2.5 py-1.5">
+                      <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
+                      <p className="text-[10px] font-semibold text-[#111111] leading-snug">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Preferences</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { label: "Work Environment", value: profile.workEnv },
+                    { label: "Target Education", value: EDU_TARGET_LABELS[profile.targetEduIndex] },
+                    { label: "Task Dislikes", value: taskDislikesDisplay },
+                    { label: "Org Structure", value: profile.orgStructure },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-2.5 py-1.5">
+                      <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
+                      <p className="text-[10px] font-semibold text-[#111111] leading-snug">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Assessments */}
+              <div>
+                <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Assessments</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <FieldLabel>MBTI Type</FieldLabel>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <StyledSelect
+                          value={draftProfile.mbtiType}
+                          onChange={(v) => updateDraft("mbtiType", v)}
+                          options={mbtiOptions.map((o) => ({ value: o.type, label: o.label }))}
+                        />
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        {(["A", "T"] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => updateDraft("variant", draftProfile.variant === v ? "" : v)}
+                            className={`px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                              draftProfile.variant === v
+                                ? "bg-[#FF5500] text-white border border-[#FF5500]"
+                                : "bg-cream text-[#888888] border border-[#E8E8E8] hover:border-[#FF5500]"
+                            }`}
+                          >
+                            -{v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <FieldLabel>Primary Sparketype</FieldLabel>
+                    <StyledSelect
+                      value={draftProfile.primarySpark}
+                      onChange={(v) => updateDraft("primarySpark", v)}
+                      options={SPARKETYPE_OPTIONS}
+                      placeholder="Select..."
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Secondary Sparketype</FieldLabel>
+                    <StyledSelect
+                      value={draftProfile.secondarySpark}
+                      onChange={(v) => updateDraft("secondarySpark", v)}
+                      options={SPARKETYPE_OPTIONS}
+                      placeholder="Select..."
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Anti-Sparketype</FieldLabel>
+                    <StyledSelect
+                      value={draftProfile.antiSpark}
+                      onChange={(v) => updateDraft("antiSpark", v)}
+                      options={SPARKETYPE_OPTIONS}
+                      placeholder="Select..."
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Enneagram</FieldLabel>
+                    <StyledSelect
+                      value={draftProfile.enneagramType}
+                      onChange={(v) => updateDraft("enneagramType", v)}
+                      options={ENNEAGRAM_OPTIONS}
+                      placeholder="Select..."
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>DiSC Style</FieldLabel>
+                    <StyledSelect
+                      value={draftProfile.discStyle}
+                      onChange={(v) => updateDraft("discStyle", v)}
+                      options={DISC_STYLES}
+                      placeholder="Select..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <FieldLabel>Zodiac Animal</FieldLabel>
+                      <StyledSelect
+                        value={draftProfile.zodiacAnimal}
+                        onChange={(v) => updateDraft("zodiacAnimal", v)}
+                        options={ZODIAC_ANIMALS}
+                        placeholder="Select..."
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Zodiac Element</FieldLabel>
+                      <StyledSelect
+                        value={draftProfile.zodiacElement}
+                        onChange={(v) => updateDraft("zodiacElement", v)}
+                        options={ZODIAC_ELEMENTS}
+                        placeholder="Select..."
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <FieldLabel>Sun Sign</FieldLabel>
+                    <StyledSelect
+                      value={draftProfile.sunSign}
+                      onChange={(v) => updateDraft("sunSign", v)}
+                      options={SUN_SIGNS}
+                      placeholder="Select..."
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <FieldLabel>CliftonStrengths (Top 5)</FieldLabel>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <StyledSelect
+                        key={i}
+                        value={draftProfile.strengths[i] ?? ""}
+                        onChange={(v) => updateDraftStrength(i, v)}
+                        options={CLIFTON_STRENGTHS}
+                        placeholder={`Strength ${i + 1}...`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <FieldLabel>Big Five Model</FieldLabel>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                    <BigFiveSlider
+                      label="Openness"
+                      traitKey="Openness"
+                      value={draftProfile.bigFive.O}
+                      onChange={(v) => updateDraftBigFive("O", v)}
+                    />
+                    <BigFiveSlider
+                      label="Conscientiousness"
+                      traitKey="Conscientiousness"
+                      value={draftProfile.bigFive.C}
+                      onChange={(v) => updateDraftBigFive("C", v)}
+                    />
+                    <BigFiveSlider
+                      label="Extraversion"
+                      traitKey="Extraversion"
+                      value={draftProfile.bigFive.E}
+                      onChange={(v) => updateDraftBigFive("E", v)}
+                    />
+                    <BigFiveSlider
+                      label="Agreeableness"
+                      traitKey="Agreeableness"
+                      value={draftProfile.bigFive.A}
+                      onChange={(v) => updateDraftBigFive("A", v)}
+                    />
+                    <BigFiveSlider
+                      label="Neuroticism"
+                      traitKey="Neuroticism"
+                      value={draftProfile.bigFive.N}
+                      onChange={(v) => updateDraftBigFive("N", v)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Preferences */}
+              <div>
+                <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Preferences</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <FieldLabel>Work Environment</FieldLabel>
+                    <PillGroup
+                      options={WORK_ENV_OPTIONS}
+                      value={draftProfile.workEnv}
+                      onChange={(v) => updateDraft("workEnv", v)}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Organizational Structure</FieldLabel>
+                    <PillGroup
+                      options={ORG_OPTIONS}
+                      value={draftProfile.orgStructure}
+                      onChange={(v) => updateDraft("orgStructure", v)}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <FieldLabel>Target Education</FieldLabel>
+                      <span className="text-xs font-bold text-[#FF5500]">
+                        {EDU_TARGET_LABELS[draftProfile.targetEduIndex]}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max={EDU_TARGET_LABELS.length - 1}
+                      value={draftProfile.targetEduIndex}
+                      onChange={(e) => updateDraft("targetEduIndex", Number(e.target.value))}
+                      className="w-full accent-[#FF5500] cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Task Dislikes</FieldLabel>
+                    <div className="max-h-28 overflow-y-auto space-y-1.5 rounded-lg border border-[#E8E8E8] bg-cream p-2.5">
+                      {TASK_DISLIKE_OPTIONS.map((task) => (
+                        <label key={task} className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={draftProfile.taskDislikes.includes(task)}
+                            onChange={() => toggleDraftTaskDislike(task)}
+                            className="w-3.5 h-3.5 accent-[#FF5500] cursor-pointer shrink-0"
+                          />
+                          <span className="text-xs text-[#555555] group-hover:text-[#000c] transition-colors">
+                            {task}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={cancelEditingProfile}
+                  className="px-4 py-1.5 text-xs font-semibold border border-[#E8E8E8] rounded-lg text-[#555555] hover:bg-[#F5F5F5] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveEditingProfile}
+                  className="px-4 py-1.5 text-xs font-semibold bg-[#FF5500] text-white rounded-lg hover:bg-[#DD4400] transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* ── Main two-column layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── LEFT: Favourited Career Paths (2/3 width) — stretches to match right column ── */}
-          <section className="lg:col-span-2 bg-white rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 flex flex-col">
+          <section className="lg:col-span-2 bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 flex flex-col">
             <div className="flex items-center gap-2 mb-1">
-              <svg className="w-5 h-5 text-[#FF5500]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
+              <Bookmark weight="bold" className="w-5 h-5 text-[#FF5500]" />
               <h2 className="text-lg font-bold text-[#111111]">
                 Favourited Career Paths
                 {favourites.length > 0 && (
@@ -408,12 +706,10 @@ export default function DashboardPage() {
             </div>
             <p className="text-sm text-[#555555] mb-5">All the career paths you have bookmarked across your searches.</p>
 
-            {favourites.length === 0 ? (
+            {!favouritesHydrated ? null : favourites.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center mb-3">
-                  <svg className="w-5 h-5 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
+                  <Bookmark weight="bold" className="w-5 h-5 text-[#888888]" />
                 </div>
                 <p className="text-sm font-semibold text-[#111111] mb-1">No saved career paths yet</p>
                 <p className="text-xs text-[#888888]">Star results on the Search page to save them here.</p>
@@ -427,89 +723,90 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* ── RIGHT: Personality Profile + Recent History (1/3 width) ── */}
-          <div className="lg:col-span-1 space-y-5">
-
-            {/* Personality Profile — compact mini box */}
-            <section className="bg-white rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-5">
-              <div className="flex items-center gap-2 mb-0.5">
-                <svg className="w-4 h-4 text-[#FF5500]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <h2 className="text-sm font-bold text-[#111111]">Your Personality Profile</h2>
-              </div>
-              <p className="text-[11px] text-[#888888] mb-4">Most recent search — {LAST_SEARCH_DATE}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Assessments column */}
-                <div>
-                  <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Assessments</p>
-                  <div className="space-y-1.5">
-                    {ASSESSMENT_SNAPSHOT.map(({ label, value }) => (
-                      <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-2.5 py-1.5">
-                        <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
-                        <p className="text-[10px] font-semibold text-[#111111] leading-snug">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {/* Preferences column */}
-                <div>
-                  <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Preferences</p>
-                  <div className="space-y-1.5">
-                    {PREFERENCE_SNAPSHOT.map(({ label, value }) => (
-                      <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-2.5 py-1.5">
-                        <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
-                        <p className="text-[10px] font-semibold text-[#111111] leading-snug">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Recent History — compact */}
-            <section className="bg-white rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-5">
-              <div className="flex items-center justify-between mb-0.5">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#FF5500]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h2 className="text-sm font-bold text-[#111111]">Recent History</h2>
-                </div>
-                <Link href="/results-history" className="text-[11px] font-semibold text-[#FF5500] hover:underline shrink-0">
-                  View All →
-                </Link>
-              </div>
-              <p className="text-[11px] text-[#888888] mb-4">Your last few career searches.</p>
-
-              <div className="space-y-2">
-                {RECENT_HISTORY.map((entry) => (
-                  <Link
-                    key={entry.id}
-                    href="/search?autorun=true"
-                    className="block rounded-xl border border-[#E8E8E8] px-4 py-3 hover:border-[#FF5500]/40 hover:bg-[#F5F5F5] transition-colors"
+          {/* ── RIGHT: Recent History + Compare Models, tabbed (1/3 width) ── */}
+          <div className="lg:col-span-1">
+            <section className="bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-5">
+              <div className="flex items-center justify-between mb-0.5 flex-wrap gap-y-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setRightTab("history")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      rightTab === "history"
+                        ? "bg-[#FFF3EC] text-[#FF5500]"
+                        : "text-[#888888] hover:text-[#555555] hover:bg-[#F5F5F5]"
+                    }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-[#888888]">{entry.date} · {entry.time}</p>
-                        <p className="text-[10px] font-semibold text-[#FF5500] uppercase tracking-wide mt-0.5">
-                          {entry.mbti} · {entry.workEnv}
-                        </p>
-                        <p className="text-xs font-semibold text-[#111111] mt-1 truncate">{entry.topMatch}</p>
-                      </div>
-                      <MatchBadge pct={entry.matchPercent} />
-                    </div>
+                    <Clock weight="bold" className="w-3.5 h-3.5" />
+                    Recent History
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRightTab("models")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      rightTab === "models"
+                        ? "bg-[#FFF3EC] text-[#FF5500]"
+                        : "text-[#888888] hover:text-[#555555] hover:bg-[#F5F5F5]"
+                    }`}
+                  >
+                    <Scales weight="bold" className="w-3.5 h-3.5" />
+                    Compare Models
+                  </button>
+                </div>
+                {rightTab === "history" && (
+                  <Link href="/results-history" className="text-[11px] font-semibold text-[#FF5500] hover:underline shrink-0">
+                    View All →
                   </Link>
-                ))}
+                )}
               </div>
+              <p className="text-[11px] text-[#888888] mb-4">
+                {rightTab === "history"
+                  ? "Your last few career searches."
+                  : "See how different AI models score the same personality profile."}
+              </p>
+
+              {rightTab === "history" ? (
+                !historyHydrated ? null : historyEntries.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <p className="text-xs font-semibold text-[#111111] mb-1">No searches yet</p>
+                    <p className="text-[11px] text-[#888888]">Run a search to see it show up here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {historyEntries.slice(0, RECENT_HISTORY_LIMIT).map((entry) => {
+                      const { date, time } = formatHistoryTimestamp(entry.timestamp);
+                      const top = topRecommendedCareer(entry);
+                      const mbti = entry.payload.mbtiType
+                        ? `${entry.payload.mbtiType}${entry.payload.variant ? `-${entry.payload.variant}` : ""}`
+                        : "—";
+                      return (
+                        <Link
+                          key={entry.id}
+                          href={`/search?historyId=${entry.id}`}
+                          className="block rounded-xl border border-[#E8E8E8] px-4 py-3 hover:border-[#FF5500]/40 hover:bg-[#F5F5F5] transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-[#888888]">{date} · {time}</p>
+                              <p className="text-[10px] font-semibold text-[#FF5500] uppercase tracking-wide mt-0.5">
+                                {mbti} · {entry.payload.workEnv || "—"}
+                              </p>
+                              <p className="text-xs font-semibold text-[#111111] mt-1 truncate">
+                                {top ? top.title : "No recommended careers"}
+                              </p>
+                            </div>
+                            {top && <MatchBadge pct={top.matchPercent} />}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )
+              ) : (
+                <ModelComparisonPanel embedded />
+              )}
             </section>
-
           </div>
-        </div>
-
-        {/* ── Model Comparison ── */}
-        <div className="mt-6">
-          <ModelComparisonPanel />
         </div>
       </main>
     </div>

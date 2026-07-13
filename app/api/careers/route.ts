@@ -17,6 +17,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runCareerAgent, type LLMProvider } from "@/src/lib/careerAgent";
 import type { FullAssessmentPayload } from "@/src/lib/types";
+import { accountStore } from "@/src/lib/server/accountStore";
+import { getCurrentAccount } from "@/src/lib/server/currentAccount";
 
 // Allow up to 60 seconds for the LLM to respond
 export const maxDuration = 60;
@@ -44,10 +46,33 @@ export async function POST(req: NextRequest) {
       ? (rawProvider as LLMProvider)
       : "claude";
 
+  // Search limits are enforced per account. Signed-out visitors (no session
+  // cookie) aren't tracked here — this only gates logged-in usage. Quota is
+  // only consumed on a successful generation (checked here, incremented
+  // after the agent call succeeds below).
+  const account = await getCurrentAccount();
+  if (account) {
+    const usage = await accountStore.getSearchUsage(account.id);
+    if (usage && usage.remaining <= 0) {
+      return NextResponse.json(
+        {
+          error: `You've used all ${usage.limit} searches for this period. It resets ${new Date(
+            usage.periodResetsAt
+          ).toLocaleDateString()}.`,
+          code: "SEARCH_LIMIT_REACHED",
+          usage,
+        },
+        { status: 429 }
+      );
+    }
+  }
+
   try {
     const startedAt = Date.now();
     const result = await runCareerAgent(payload, provider);
     const generationTimeMs = Date.now() - startedAt;
+
+    const usage = account ? (await accountStore.recordSearch(account.id)).usage : null;
 
     return NextResponse.json(
       {
@@ -58,6 +83,7 @@ export async function POST(req: NextRequest) {
         // How long the provider itself took to generate this result — lets
         // the UI compare models on speed, not just quality.
         generationTimeMs,
+        usage,
       },
       { status: 200 }
     );

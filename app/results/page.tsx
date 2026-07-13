@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useRef, useState } from "react";
+import { CaretDown, CaretLeft, CaretRight, MagnifyingGlass, ShareNetwork, Star } from "@phosphor-icons/react";
 import AppNav from "@/src/components/AppNav";
 import AssessmentForm, { type AssessmentValues } from "@/src/components/AssessmentForm";
 import {
@@ -35,33 +36,17 @@ function sortAlpha(careers: CareerMatch[]): CareerMatch[] {
 }
 
 function StarFilledIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-    </svg>
-  );
+  return <Star weight="fill" className={className} />;
 }
 
 function ChevronDown({ className = "w-4 h-4" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  );
+  return <CaretDown weight="bold" className={className} />;
 }
 function ChevronLeft({ className = "w-4 h-4" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-  );
+  return <CaretLeft weight="bold" className={className} />;
 }
 function ChevronRight({ className = "w-4 h-4" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  );
+  return <CaretRight weight="bold" className={className} />;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -126,7 +111,7 @@ export default function ResultsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <AppNav active="search" />
 
       <div className="flex min-h-[calc(100vh-56px)]">
@@ -148,7 +133,7 @@ export default function ResultsPage() {
           <button
             onClick={() => setSidebarOpen((o) => !o)}
             title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-            className="absolute top-3 -right-3 z-10 w-6 h-6 bg-white border border-[#E8E8E8] rounded-full shadow-sm flex items-center justify-center text-[#FF5500] hover:bg-[#FFF0E5] transition-colors"
+            className="absolute top-3 -right-3 z-10 w-6 h-6 bg-cream border border-[#E8E8E8] rounded-full shadow-sm flex items-center justify-center text-[#FF5500] hover:bg-[#FFF0E5] transition-colors"
           >
             {sidebarOpen ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </button>
@@ -167,11 +152,9 @@ export default function ResultsPage() {
             <div className="flex flex-col sm:flex-row sm:items-end gap-3 shrink-0">
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-2 border border-[#E8E8E8] bg-white text-[#555555] font-semibold text-sm px-4 py-2 rounded-lg shadow-sm hover:border-[#FF5500] hover:text-[#FF5500] transition-colors"
+                className="inline-flex items-center justify-center gap-2 border border-[#E8E8E8] bg-cream text-[#555555] font-semibold text-sm px-4 py-2 rounded-lg shadow-sm hover:border-[#FF5500] hover:text-[#FF5500] transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
+                <ShareNetwork weight="bold" className="w-4 h-4" />
                 Share / Export
               </button>
 
@@ -184,7 +167,7 @@ export default function ResultsPage() {
                 <select
                   value={domainFilter}
                   onChange={(e) => setDomainFilter(e.target.value as CareerDomain)}
-                  className="appearance-none bg-white border border-[#E8E8E8] rounded-lg px-4 py-2 text-sm text-[#111111] pr-10 shadow-sm focus:outline-none focus:border-[#FF5500] min-w-[168px] cursor-pointer"
+                  className="appearance-none bg-cream border border-[#E8E8E8] rounded-lg px-4 py-2 text-sm text-[#111111] pr-10 shadow-sm focus:outline-none focus:border-[#FF5500] min-w-[168px] cursor-pointer"
                 >
                   {CAREER_DOMAINS.map((d) => (
                     <option key={d} value={d}>
@@ -241,12 +224,12 @@ export default function ResultsPage() {
           >
             {isCalculating ? (
               <div className="space-y-4">
-                <div className="bg-white rounded-xl border border-[#E8E8E8] h-64 animate-pulse" />
+                <div className="bg-cream rounded-xl border border-[#E8E8E8] h-64 animate-pulse" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
-                      className="bg-white rounded-xl border border-[#E8E8E8] h-44 animate-pulse"
+                      className="bg-cream rounded-xl border border-[#E8E8E8] h-44 animate-pulse"
                     />
                   ))}
                 </div>
@@ -322,9 +305,7 @@ function EmptyState({ domain }: { domain: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="w-12 h-12 rounded-full bg-[#FDECD8] flex items-center justify-center mb-4">
-        <svg className="w-6 h-6 text-[#FF5500]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+        <MagnifyingGlass weight="bold" className="w-6 h-6 text-[#FF5500]" />
       </div>
       <p className="text-[#111111] font-semibold text-base mb-1">No results in this domain</p>
       <p className="text-sm text-[#888888]">
