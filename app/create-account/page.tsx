@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AppNav from "@/src/components/AppNav";
-import { DEFAULT_USER_EMAIL, DEFAULT_USER_NAME, useAuth } from "@/src/components/AuthProvider";
+import { useAuth } from "@/src/components/AuthProvider";
 
 const ENGAGEMENT_OPTIONS = [
   {
@@ -26,12 +26,14 @@ const ENGAGEMENT_OPTIONS = [
 
 export default function CreateAccountPage() {
   const router = useRouter();
-  const { signIn } = useAuth();
-  const [name, setName] = useState(DEFAULT_USER_NAME);
-  const [email, setEmail] = useState(DEFAULT_USER_EMAIL);
-  const [password, setPassword] = useState("password123");
-  const [confirmPassword, setConfirmPassword] = useState("password123");
+  const { signUp } = useAuth();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [engagement, setEngagement] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function toggleEngagement(id: string) {
     setEngagement((prev) => {
@@ -41,19 +43,42 @@ export default function CreateAccountPage() {
     });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    signIn({ name, email });
+    setError(null);
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await signUp({ name, email, password, confirmPassword, engagement: Array.from(engagement) });
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error ?? "Unable to create account.");
+      return;
+    }
     router.push("/search");
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <AppNav active="dashboard" />
       <main className="flex items-center justify-center p-6 min-h-[calc(100vh-56px)]">
-        <div className="w-full max-w-md bg-white rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-8">
+        <div className="w-full max-w-md bg-cream rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-8">
           <h1 className="text-2xl font-bold text-[#111111] mb-1">Create Account</h1>
           <p className="text-sm text-[#555555] mb-8">Start building your career sandbox profile.</p>
+
+          {error && (
+            <div className="mb-5 rounded-lg border border-[#EE0000]/30 bg-[#FFEEEE] px-3 py-2.5 text-sm text-[#CC0000]">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
@@ -62,6 +87,7 @@ export default function CreateAccountPage() {
               </label>
               <input
                 type="text"
+                required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
@@ -74,6 +100,7 @@ export default function CreateAccountPage() {
               </label>
               <input
                 type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@email.com"
@@ -86,9 +113,11 @@ export default function CreateAccountPage() {
               </label>
               <input
                 type="password"
+                required
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="At least 8 characters"
                 className="w-full border border-[#E8E8E8] rounded px-3 py-2.5 text-sm text-[#111111] focus:outline-none focus:border-[#FF5500]"
               />
             </div>
@@ -98,6 +127,7 @@ export default function CreateAccountPage() {
               </label>
               <input
                 type="password"
+                required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
@@ -140,9 +170,10 @@ export default function CreateAccountPage() {
 
             <button
               type="submit"
-              className="w-full bg-[#FF5500] text-white font-semibold text-sm py-3 rounded hover:bg-[#DD4400] transition-colors"
+              disabled={submitting}
+              className="w-full bg-[#FF5500] text-white font-semibold text-sm py-3 rounded hover:bg-[#DD4400] transition-colors disabled:opacity-60"
             >
-              Create Account
+              {submitting ? "Creating account…" : "Create Account"}
             </button>
           </form>
 

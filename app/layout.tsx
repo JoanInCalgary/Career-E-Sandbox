@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/src/components/AuthProvider";
 import "./globals.css";
 
 /** Display / heading font — editorial serif, used for big titles. */
-const instrumentSerif = Instrument_Serif({
+const fraunces = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
   weight: "400",
-  style: ["normal", "italic"],
 });
 
 /** Body font — clean geometric sans. */
@@ -36,7 +35,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrumentSerif.variable} ${geist.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${geist.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>{children}</AuthProvider>

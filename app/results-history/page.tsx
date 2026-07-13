@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Clock, ClockCounterClockwise, ShareNetwork, Trash } from "@phosphor-icons/react";
 import AppNav from "@/src/components/AppNav";
 import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
 import {
@@ -16,27 +17,15 @@ import {
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 function IconTrash({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  );
+  return <Trash weight="bold" className={className} />;
 }
 
 function IconClock({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
+  return <Clock weight="bold" className={className} />;
 }
 
 function IconHistory() {
-  return (
-    <svg className="w-5 h-5 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
+  return <ClockCounterClockwise weight="light" className="w-5 h-5 text-[#888888]" />;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,7 +57,7 @@ export default function ResultsHistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <AppNav active="results-history" />
       <main className="max-w-4xl mx-auto p-6 md:p-8">
         <div className="mb-8">
@@ -80,7 +69,7 @@ export default function ResultsHistoryPage() {
         </div>
 
         {!hydrated ? null : entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-xl border border-[#E8E8E8]">
+          <div className="flex flex-col items-center justify-center py-20 text-center bg-cream rounded-xl border border-[#E8E8E8]">
             <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center mb-3">
               <IconHistory />
             </div>
@@ -107,7 +96,7 @@ export default function ResultsHistoryPage() {
               return (
                 <div
                   key={entry.id}
-                  className="bg-white rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 hover:shadow-[0_4px_20px_rgba(15,23,42,0.05)] transition-shadow"
+                  className="bg-cream rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 hover:shadow-[0_4px_20px_rgba(15,23,42,0.05)] transition-shadow"
                 >
                   {/* Header row */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
@@ -121,7 +110,7 @@ export default function ResultsHistoryPage() {
                             {top.matchPercent}% Match
                           </span>
                         )}
-                        <span className="px-2.5 py-1 rounded-full bg-[#FFFFFF] border border-[#E8E8E8] text-[#555555] text-xs font-semibold">
+                        <span className="px-2.5 py-1 rounded-full bg-[#fdf9f8] border border-[#E8E8E8] text-[#555555] text-xs font-semibold">
                           {entry.confidencePercent}% confidence
                         </span>
                         <span
@@ -153,7 +142,7 @@ export default function ResultsHistoryPage() {
                           <button
                             type="button"
                             onClick={() => setConfirmingId(null)}
-                            className="inline-flex items-center justify-center border border-[#E8E8E8] bg-white text-[#555555] font-semibold text-sm px-4 py-2 rounded hover:bg-[#F5F5F5] transition-colors"
+                            className="inline-flex items-center justify-center border border-[#E8E8E8] bg-cream text-[#555555] font-semibold text-sm px-4 py-2 rounded hover:bg-[#F5F5F5] transition-colors"
                           >
                             Cancel
                           </button>
@@ -178,11 +167,9 @@ export default function ResultsHistoryPage() {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex items-center justify-center gap-2 border border-[#E8E8E8] bg-white text-[#555555] font-semibold text-sm px-4 py-2 rounded hover:border-[#FF5500] hover:text-[#FF5500] transition-colors"
+                            className="inline-flex items-center justify-center gap-2 border border-[#E8E8E8] bg-cream text-[#555555] font-semibold text-sm px-4 py-2 rounded hover:border-[#FF5500] hover:text-[#FF5500] transition-colors"
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                            </svg>
+                            <ShareNetwork weight="bold" className="w-4 h-4" />
                             Share / Export
                           </button>
                           <Link

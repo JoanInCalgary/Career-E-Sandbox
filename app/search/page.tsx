@@ -16,6 +16,19 @@ import {
   SecondaryCard,
 } from "@/src/components/CareerCards";
 import {
+  CaretDown,
+  Check,
+  ClipboardText,
+  Info,
+  Lightning,
+  MagnifyingGlass,
+  ShareNetwork,
+  Sparkle,
+  Star,
+  User,
+  Warning,
+} from "@phosphor-icons/react";
+import {
   ALL_RESULT_SETS,
   CAREER_DOMAINS,
   type CareerDomain,
@@ -31,6 +44,7 @@ import {
   saveHistoryEntry,
   saveModelRun,
 } from "@/src/lib/modelRuns";
+import { getFavouriteIds, toggleFavourite as toggleFavouriteInStore } from "@/src/lib/favourites";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -45,17 +59,29 @@ function pickRandom(current?: ResultSet): ResultSet {
 const DEFAULT_PROVIDER: LLMProvider =
   (process.env.NEXT_PUBLIC_DEFAULT_PROVIDER as LLMProvider | undefined) ?? "gemini";
 
-/** Call the /api/careers route. Returns null on failure (triggers mock fallback). */
-async function fetchCareerResults(
-  payload: FullAssessmentPayload,
-  provider: LLMProvider
-): Promise<{
+interface CareerFetchSuccess {
+  ok: true;
   provider: LLMProvider;
   careers: CareerMatch[];
   confidencePercent: number;
   activeVariables: string;
   generationTimeMs?: number;
-} | null> {
+}
+
+interface CareerFetchFailure {
+  ok: false;
+  /** True when the account's per-period search allowance is exhausted (HTTP 429). */
+  limitReached?: boolean;
+  message?: string;
+}
+
+type CareerFetchOutcome = CareerFetchSuccess | CareerFetchFailure;
+
+/** Call the /api/careers route. `ok: false` triggers mock fallback, except for limitReached. */
+async function fetchCareerResults(
+  payload: FullAssessmentPayload,
+  provider: LLMProvider
+): Promise<CareerFetchOutcome> {
   try {
     const res = await fetch("/api/careers", {
       method: "POST",
@@ -66,7 +92,10 @@ async function fetchCareerResults(
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       console.error("[fetchCareerResults] API error", res.status, err);
-      return null;
+      if (res.status === 429) {
+        return { ok: false, limitReached: true, message: err.error as string | undefined };
+      }
+      return { ok: false };
     }
 
     const data = await res.json();
@@ -74,10 +103,11 @@ async function fetchCareerResults(
 
     if (!Array.isArray(data.careers)) {
       console.error("[fetchCareerResults] careers field missing or not an array", data);
-      return null;
+      return { ok: false };
     }
 
     return {
+      ok: true,
       provider: (data.provider as LLMProvider) ?? provider,
       careers: data.careers as CareerMatch[],
       confidencePercent: data.confidencePercent ?? 80,
@@ -86,7 +116,7 @@ async function fetchCareerResults(
     };
   } catch (e) {
     console.error("[fetchCareerResults] fetch threw", e);
-    return null;
+    return { ok: false };
   }
 }
 
@@ -95,35 +125,19 @@ function sortAlpha(careers: CareerMatch[]): CareerMatch[] {
 }
 
 function StarFilledIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-    </svg>
-  );
+  return <Star weight="fill" className={className} />;
 }
 
 function ChevronDown({ className = "w-4 h-4" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  );
+  return <CaretDown weight="bold" className={className} />;
 }
 
 function CheckIcon({ className = "w-4 h-4" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-    </svg>
-  );
+  return <Check weight="bold" className={className} />;
 }
 
 function SparkleIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 10l-5.714 2.143L13 19l-2.286-6.857L5 10l5.714-2.143L13 1z" />
-    </svg>
-  );
+  return <Sparkle weight="bold" className={className} />;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -149,6 +163,7 @@ export default function SearchPage() {
   const [resultSet, setResultSet] = useState<ResultSet>(() => pickRandom());
   const [activeProvider, setActiveProvider] = useState<LLMProvider>(DEFAULT_PROVIDER);
   const [usingMockData, setUsingMockData] = useState(false);
+  const [searchLimitMessage, setSearchLimitMessage] = useState<string | null>(null);
   const [generatedByProvider, setGeneratedByProvider] = useState<LLMProvider | null>(null);
   const [generationTimeMs, setGenerationTimeMs] = useState<number | null>(null);
   const latestPayloadRef = useRef<FullAssessmentPayload | null>(null);
@@ -183,6 +198,12 @@ export default function SearchPage() {
     }
   }, []);
 
+  // Hydrate starred state from the shared favourites store so cards that were
+  // already favourited (e.g. re-opened from history) show up starred.
+  useEffect(() => {
+    setFavourites(getFavouriteIds());
+  }, []);
+
   function selectProvider(provider: LLMProvider) {
     setActiveProvider(provider);
     setModelMenuOpen(false);
@@ -213,10 +234,16 @@ export default function SearchPage() {
   const favouriteCards = allRecommended.filter((c) => favourites.has(c.id));
   const gridCards = allRecommended.slice(1).filter((c) => !favourites.has(c.id));
 
+  /** Stars/unstars a career, persisting the full snapshot to the shared
+   * favourites store so it shows up (or disappears) on the Dashboard too. */
   function toggleFavourite(id: string) {
+    const career = resultSet.careers.find((c) => c.id === id);
+    if (!career) return;
+    const nowFavourited = toggleFavouriteInStore(career);
     setFavourites((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (nowFavourited) next.add(id);
+      else next.delete(id);
       return next;
     });
   }
@@ -275,11 +302,14 @@ export default function SearchPage() {
       if (isCalculatingRef.current) return;
       isCalculatingRef.current = true;
       setIsCalculating(true);
+      setSearchLimitMessage(null);
 
       if (effectivePayload) {
-        const result = await fetchCareerResults(effectivePayload, activeProvider);
-        if (result) {
-          applyLiveResult(result, effectivePayload);
+        const outcome = await fetchCareerResults(effectivePayload, activeProvider);
+        if (outcome.ok) {
+          applyLiveResult(outcome, effectivePayload);
+        } else if (outcome.limitReached) {
+          setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
         } else {
           setResultSet((prev) => pickRandom(prev));
           setUsingMockData(true);
@@ -295,16 +325,20 @@ export default function SearchPage() {
 
       setActiveTab("recommended");
       setDomainFilter("All Domains");
-      setFavourites(new Set());
       setIsCalculating(false);
       isCalculatingRef.current = false;
     } else {
       setView("loading");
+      setSearchLimitMessage(null);
 
       if (effectivePayload) {
-        const result = await fetchCareerResults(effectivePayload, activeProvider);
-        if (result) {
-          applyLiveResult(result, effectivePayload);
+        const outcome = await fetchCareerResults(effectivePayload, activeProvider);
+        if (outcome.ok) {
+          applyLiveResult(outcome, effectivePayload);
+        } else if (outcome.limitReached) {
+          setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
+          setView("idle");
+          return;
         } else {
           setResultSet(pickRandom());
           setUsingMockData(true);
@@ -335,7 +369,7 @@ export default function SearchPage() {
   void showResults; // suppress unused warning
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <AppNav active="search" />
 
       <div className="relative min-h-[calc(100vh-56px)]">
@@ -348,9 +382,7 @@ export default function SearchPage() {
             {preload && view !== "loading" && (
               <div className="mb-5">
                 <div className="flex items-start gap-3 bg-[#F5F5F5] border border-[#E8E8E8] rounded-xl px-5 py-4">
-                  <svg className="w-5 h-5 text-[#888888] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <Info weight="bold" className="w-5 h-5 text-[#888888] shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-[#333333]">Previous search pre-loaded</p>
                     <p className="text-xs text-[#888888] mt-0.5">
@@ -361,14 +393,23 @@ export default function SearchPage() {
               </div>
             )}
 
+            {/* Search limit banner */}
+            {searchLimitMessage && (
+              <div className="mb-5 flex items-start gap-3 bg-[#FFEEEE] border border-[#EE0000]/30 rounded-xl px-5 py-3">
+                <Warning weight="bold" className="w-4 h-4 text-[#CC0000] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-[#CC0000]">Search limit reached</p>
+                  <p className="text-xs text-[#994444] mt-0.5">{searchLimitMessage}</p>
+                </div>
+              </div>
+            )}
+
             {view === "idle" ? (
               /* ── Idle placeholder ── */
               <div className="flex flex-col h-full">
                 <div className="flex flex-col items-center justify-center flex-1 text-center py-20">
                   <div className="w-16 h-16 rounded-2xl bg-[#F5F5F5] flex items-center justify-center mb-5">
-                    <svg className="w-8 h-8 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
+                    <ClipboardText weight="light" className="w-8 h-8 text-[#888888]" />
                   </div>
                   <h2 className="text-2xl text-[#111111] mb-2">Career Path Results</h2>
                   <p className="text-sm text-[#888888] max-w-sm leading-relaxed">
@@ -393,9 +434,7 @@ export default function SearchPage() {
               <>
                 {usingMockData && (
                   <div className="mb-4 flex items-start gap-3 bg-[#FFFBEE] border border-[#FFE57A] rounded-xl px-5 py-3">
-                    <svg className="w-4 h-4 text-[#AA8800] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    </svg>
+                    <Warning weight="bold" className="w-4 h-4 text-[#AA8800] shrink-0 mt-0.5" />
                     <p className="text-xs text-[#775500]">
                       <span className="font-semibold">Preview mode —</span> AI provider unavailable or API key not set. Showing sample data. Add your key to{" "}
                       <code
@@ -433,11 +472,9 @@ export default function SearchPage() {
                   <div className="flex flex-col sm:flex-row sm:items-end gap-3 shrink-0">
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center gap-2 border border-[#E8E8E8] bg-white text-[#888888] font-semibold text-sm px-4 py-2 rounded-lg shadow-sm hover:border-[#111111] hover:text-[#111111] transition-colors"
+                      className="inline-flex items-center justify-center gap-2 border border-[#E8E8E8] bg-cream text-[#888888] font-semibold text-sm px-4 py-2 rounded-lg shadow-sm hover:border-[#000c] hover:text-[#000c] transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                      </svg>
+                      <ShareNetwork weight="bold" className="w-4 h-4" />
                       Share / Export
                     </button>
                     <div>
@@ -451,7 +488,7 @@ export default function SearchPage() {
                         <select
                           value={domainFilter}
                           onChange={(e) => setDomainFilter(e.target.value as CareerDomain)}
-                          className="appearance-none bg-white border border-[#E8E8E8] rounded-lg px-4 py-2 text-sm text-[#111111] pr-10 shadow-sm focus:outline-none focus:border-[#111111] min-w-[168px] cursor-pointer"
+                          className="appearance-none bg-cream border border-[#E8E8E8] rounded-lg px-4 py-2 text-sm text-[#111111] pr-10 shadow-sm focus:outline-none focus:border-[#000c] min-w-[168px] cursor-pointer"
                         >
                           {CAREER_DOMAINS.map((d) => (
                             <option key={d} value={d}>{d}</option>
@@ -471,7 +508,7 @@ export default function SearchPage() {
                       onClick={() => setActiveTab("recommended")}
                       className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-colors whitespace-nowrap -mb-px ${
                         activeTab === "recommended"
-                          ? "text-[#111111] border-b-2 border-[#111111]"
+                          ? "text-[#111111] border-b-2 border-[#000c]"
                           : "text-[#888888] hover:text-[#555555]"
                       }`}
                     >
@@ -582,7 +619,7 @@ export default function SearchPage() {
           {/* Backdrop */}
           {(pillOpen || modelMenuOpen) && (
             <div
-              className="fixed inset-0 z-30"
+              className="fixed inset-0 z-30 bg-black/30 backdrop-blur-[2px] transition-opacity"
               onClick={() => {
                 setPillOpen(false);
                 setModelMenuOpen(false);
@@ -592,7 +629,7 @@ export default function SearchPage() {
 
           {/* Expanded personality panel */}
           <div
-            className="fixed z-40 left-1/2 -translate-x-1/2 w-[calc(100vw-32px)] max-w-sm md:max-w-md bg-white rounded-2xl shadow-2xl border border-[#E8E8E8]"
+            className="fixed z-40 left-1/2 -translate-x-1/2 w-[calc(100vw-32px)] max-w-sm md:max-w-md bg-cream rounded-2xl shadow-2xl border border-[#E8E8E8]"
             style={{
               bottom: "80px",
               maxHeight: pillOpen ? "72vh" : "0px",
@@ -617,7 +654,7 @@ export default function SearchPage() {
 
           {/* The pill */}
           <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-[calc(100vw-32px)] max-w-[360px] md:max-w-[600px]">
-            <div className="flex items-stretch bg-white border border-[#E8E8E8] rounded-full shadow-lg shadow-black/10 h-14">
+            <div className="flex items-stretch bg-cream border border-[#E8E8E8] rounded-full shadow-lg shadow-black/10 h-14">
 
               {/* ── Personality tab ── */}
               <button
@@ -629,9 +666,7 @@ export default function SearchPage() {
                 className="flex flex-1 items-center gap-3 pl-5 pr-4 rounded-l-full hover:bg-[#F5F5F5] transition-colors"
               >
                 <div className="w-6 h-6 rounded-full bg-[#F0F0F0] flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-[#555555]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+                  <User weight="bold" className="w-3 h-3 text-[#555555]" />
                 </div>
                 <div className="text-left min-w-0">
                   <p
@@ -655,9 +690,7 @@ export default function SearchPage() {
                     transition: "transform 300ms",
                   }}
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <CaretDown weight="bold" className="w-3.5 h-3.5" />
                 </span>
               </button>
 
@@ -706,7 +739,7 @@ export default function SearchPage() {
                 {modelMenuOpen && (
                   <div
                     role="listbox"
-                    className="absolute bottom-full right-0 mb-3 w-60 bg-white border border-[#E8E8E8] rounded-xl shadow-xl overflow-hidden z-50"
+                    className="absolute bottom-full right-0 mb-3 w-60 bg-cream border border-[#E8E8E8] rounded-xl shadow-xl overflow-hidden z-50"
                   >
                     <p className="text-[9px] font-bold text-[#888888] uppercase tracking-widest px-4 pt-3 pb-1">
                       AI Model
@@ -756,9 +789,7 @@ export default function SearchPage() {
                   </>
                 ) : (
                   <>
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+                    <Lightning weight="bold" className="w-3.5 h-3.5" />
                     <span>{view === "results" ? "Recalculate" : "Generate"}</span>
                   </>
                 )}
@@ -775,9 +806,7 @@ function EmptyState({ domain }: { domain: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center mb-4">
-        <svg className="w-6 h-6 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+        <MagnifyingGlass weight="bold" className="w-6 h-6 text-[#888888]" />
       </div>
       <p className="text-[#111111] font-semibold text-base mb-1">No results in this domain</p>
       <p className="text-sm text-[#888888]">

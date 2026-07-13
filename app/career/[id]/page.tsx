@@ -4,6 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import AppNav from "@/src/components/AppNav";
+import {
+  ArrowLeft,
+  TrendUp,
+  Briefcase,
+  GraduationCap,
+  ShieldCheck,
+  XCircle,
+  CaretDown,
+  ChartBar,
+  Lightning,
+  Star,
+} from "@phosphor-icons/react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -192,22 +204,22 @@ const QUARTILE_META: Record<number, { label: string; bar: string; badge: string;
 // ── Shared icons ──────────────────────────────────────────────────────────────
 
 function IconTrendUp() {
-  return <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>;
+  return <TrendUp weight="bold" className="w-4 h-4 shrink-0" />;
 }
 function IconBriefcase() {
-  return <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="2" y="7" width="20" height="14" rx="2" strokeWidth={2} /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" /></svg>;
+  return <Briefcase weight="bold" className="w-4 h-4 shrink-0" />;
 }
 function IconGradCap() {
-  return <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>;
+  return <GraduationCap weight="bold" className="w-4 h-4 shrink-0" />;
 }
 function IconShield() {
-  return <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>;
+  return <ShieldCheck weight="bold" className="w-3.5 h-3.5 shrink-0" />;
 }
 function IconX() {
-  return <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" strokeWidth={2} /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 9l-6 6M9 9l6 6" /></svg>;
+  return <XCircle weight="bold" className="w-3.5 h-3.5 shrink-0" />;
 }
 function ChevronDown() {
-  return <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>;
+  return <CaretDown weight="bold" className="w-4 h-4" />;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -225,7 +237,7 @@ function QuartileFilter({ value, onChange }: { value: Quartile; onChange: (v: Qu
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as Quartile)}
-        className="appearance-none bg-white border border-[#E8E8E8] rounded-lg px-3 py-1.5 text-xs text-[#111111] pr-8 focus:outline-none focus:border-[#FF5500] cursor-pointer"
+        className="appearance-none bg-cream border border-[#E8E8E8] rounded-lg px-3 py-1.5 text-xs text-[#111111] pr-8 focus:outline-none focus:border-[#FF5500] cursor-pointer"
       >
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -239,7 +251,7 @@ function QuartileFilter({ value, onChange }: { value: Quartile; onChange: (v: Qu
 function RankingRow({ rank, item, quartile }: { rank: number; item: TypeRanking; quartile: 1 | 2 | 3 | 4 }) {
   const meta = QUARTILE_META[quartile];
   return (
-    <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-[#E8E8E8] bg-white hover:bg-[#F5F5F5] transition-colors">
+    <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-[#E8E8E8] bg-cream hover:bg-[#F5F5F5] transition-colors">
       <span className="text-sm font-bold w-6 shrink-0 text-center mt-0.5 text-[#888888]">{rank}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -346,46 +358,32 @@ export default function CareerDetailPage() {
       title: "Myers-Briggs (MBTI) Fit Rankings",
       items: career.mbtiRankings,
       note: undefined,
-      icon: (
-        <svg className="w-4 h-4 text-[#FF5500]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
+      icon: <ChartBar weight="bold" className="w-4 h-4 text-[#FF5500]" />,
     },
     sparketype: {
       title: "Sparketype Fit Rankings",
       items: career.sparketypeRankings,
       note: "Supplementary signal — lower weight than validated psychometric frameworks. Use as directional guidance only.",
-      icon: (
-        <svg className="w-4 h-4 text-[#FFAA00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      ),
+      icon: <Lightning weight="bold" className="w-4 h-4 text-[#FFAA00]" />,
     },
     astrology: {
       title: "Sun Sign (Astrology) Fit Rankings",
       items: career.astrologyRankings,
       note: "Exploratory only — not based on validated psychometric research. Included as a cultural supplementary lens.",
-      icon: (
-        <svg className="w-4 h-4 text-[#888888]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-        </svg>
-      ),
+      icon: <Star weight="bold" className="w-4 h-4 text-[#888888]" />,
     },
   };
 
   const current = frameworkConfig[activeFramework];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream">
       <AppNav active="search" />
 
       <main className="px-6 md:px-8 py-6 md:py-8">
         {/* Back link */}
         <Link href="/search" className="inline-flex items-center gap-1.5 text-sm text-[#FF5500] font-semibold hover:underline mb-6">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeft weight="bold" className="w-4 h-4" />
           Back to Results
         </Link>
 
@@ -396,7 +394,7 @@ export default function CareerDetailPage() {
           <div className="lg:col-span-1 space-y-5 lg:sticky lg:top-20">
 
             {/* Career header card */}
-            <section className="bg-white rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
+            <section className="bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
               <p className="text-[11px] font-bold text-[#888888] uppercase tracking-widest mb-1">{career.sector}</p>
               <h1 className="text-xl md:text-2xl font-bold text-[#111111] tracking-tight mb-4 leading-snug">
                 {career.title}
@@ -430,7 +428,7 @@ export default function CareerDetailPage() {
             </section>
 
             {/* Pros / Cons card */}
-            <section className="bg-white rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
+            <section className="bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-5">
                 <div>
                   <div className="flex items-center gap-1.5 mb-3">
@@ -469,7 +467,7 @@ export default function CareerDetailPage() {
           <div className="lg:col-span-2">
 
             {/* Framework selector + panel */}
-            <div className="bg-white rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-5">
+            <div className="bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-5">
               {/* Dropdown selector */}
               <div className="flex items-center gap-3 mb-4 flex-wrap">
                 <p className="text-[11px] font-bold text-[#888888] uppercase tracking-widest shrink-0">View rankings by</p>
@@ -477,7 +475,7 @@ export default function CareerDetailPage() {
                   <select
                     value={activeFramework}
                     onChange={(e) => handleFrameworkChange(e.target.value as Framework)}
-                    className="appearance-none bg-white border border-[#E8E8E8] rounded-lg px-3 py-1.5 text-sm font-semibold text-[#111111] pr-8 focus:outline-none focus:border-[#FF5500] cursor-pointer"
+                    className="appearance-none bg-cream border border-[#E8E8E8] rounded-lg px-3 py-1.5 text-sm font-semibold text-[#111111] pr-8 focus:outline-none focus:border-[#FF5500] cursor-pointer"
                   >
                     {FRAMEWORK_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
