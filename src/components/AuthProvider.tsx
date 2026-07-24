@@ -2,6 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { FullAssessmentPayload } from "@/src/lib/types";
+import { loadFromSupabase } from "@/src/lib/loadFromSupabase";
+import { clearFavourites } from "@/src/lib/favourites";
+import { clearHistoryEntries } from "@/src/lib/modelRuns";
+import { clearPersonalityProfile } from "@/src/lib/personalityProfile";
 
 export const DEFAULT_USER_NAME = "John Doe";
 export const DEFAULT_USER_EMAIL = "name@email.com";
@@ -26,6 +30,8 @@ export interface AuthResult {
   ok: boolean;
   error?: string;
   code?: string;
+  /** Account created but must confirm email before a session exists. */
+  needsEmailConfirmation?: boolean;
 }
 
 interface AuthContextValue {
@@ -55,8 +61,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-// ── Server response shapes ───────────────────────────────────────────────────
 
 interface PublicAccountDto {
   id: string;
@@ -98,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const data = (await res.json()) as { account: PublicAccountDto; usage: SearchUsage | null };
       setUser(toAuthUser(data.account, data.usage));
+      await loadFromSupabase(data.account.profile);
     } catch {
       setUser(null);
     }
@@ -118,9 +123,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     const data = await parseJson(res);
     if (!res.ok) {
-      return { ok: false, error: (data.error as string) ?? "Unable to create account.", code: data.code as string };
+      return {
+        ok: false,
+        error: (data.error as string) ?? "Unable to create account.",
+        code: data.code as string,
+      };
+    }
+    if (data.needsEmailConfirmation) {
+      return {
+        ok: true,
+        needsEmailConfirmation: true,
+        error: (data.message as string) ?? "Check your email to confirm your account.",
+      };
     }
     setUser(toAuthUser(data.account as PublicAccountDto, data.usage as SearchUsage | null));
+    await loadFromSupabase(
+      (data.account as PublicAccountDto | undefined)?.profile ?? null
+    );
     return { ok: true };
   }, []);
 
@@ -132,14 +151,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     const data = await parseJson(res);
     if (!res.ok) {
-      return { ok: false, error: (data.error as string) ?? "Unable to log in.", code: data.code as string };
+      return {
+        ok: false,
+        error: (data.error as string) ?? "Unable to log in.",
+        code: data.code as string,
+      };
     }
     setUser(toAuthUser(data.account as PublicAccountDto, data.usage as SearchUsage | null));
+    await loadFromSupabase(
+      (data.account as PublicAccountDto | undefined)?.profile ?? null
+    );
     return { ok: true };
   }, []);
 
   const signOut = useCallback(async () => {
     await fetch("/api/account/session", { method: "DELETE" });
+    clearFavourites();
+    clearHistoryEntries();
+    clearPersonalityProfile();
     setUser(null);
   }, []);
 
@@ -151,7 +180,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     const data = await parseJson(res);
     if (!res.ok) {
-      return { ok: false, error: (data.error as string) ?? "Unable to update account.", code: data.code as string };
+      return {
+        ok: false,
+        error: (data.error as string) ?? "Unable to update account.",
+        code: data.code as string,
+      };
     }
     setUser(toAuthUser(data.account as PublicAccountDto, data.usage as SearchUsage | null));
     return { ok: true };
@@ -165,8 +198,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     const data = await parseJson(res);
     if (!res.ok) {
-      return { ok: false, error: (data.error as string) ?? "Unable to delete account.", code: data.code as string };
+      return {
+        ok: false,
+        error: (data.error as string) ?? "Unable to delete account.",
+        code: data.code as string,
+      };
     }
+    clearFavourites();
+    clearHistoryEntries();
+    clearPersonalityProfile();
     setUser(null);
     return { ok: true };
   }, []);

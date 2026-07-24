@@ -63,12 +63,16 @@ export default function CreateAccountPage() {
       setError(result.error ?? "Unable to create account.");
       return;
     }
+    if (result.needsEmailConfirmation) {
+      router.push("/login?confirm=1");
+      return;
+    }
     router.push("/search");
   }
 
   return (
     <div className="min-h-screen bg-cream">
-      <AppNav active="dashboard" />
+      <AppNav active="search" />
       <main className="flex items-center justify-center p-6 min-h-[calc(100vh-56px)]">
         <div className="w-full max-w-md bg-cream rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-8">
           <h1 className="text-2xl font-bold text-[#111111] mb-1">Create Account</h1>

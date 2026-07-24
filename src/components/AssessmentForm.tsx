@@ -344,16 +344,16 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   onSubmitWithValues,
   isLoading,
 }, ref) {
-  const usePrefill = layout === "sidebar" || preload;
   const [sidebarTab, setSidebarTab] = useState<"assessments" | "additional">("assessments");
+  void preload; // reserved for restore UX; no demographic auto-fill in MVP
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [enabledOptional, setEnabledOptional] = useState<Set<string>>(new Set());
 
   // These fields are shared with the Dashboard's editable "Your Personality
-  // Profile" box via personalityProfile.ts (localStorage). Initial values here
-  // are the library defaults (deterministic on server + client, so no SSR
-  // hydration mismatch); the effect below re-hydrates from localStorage right
-  // after mount if the user has previously edited their profile.
+  // Profile" box via personalityProfile.ts (in-memory + Supabase). Initial
+  // values here are empty MVP defaults (deterministic on server + client, so
+  // no SSR hydration mismatch); the effect below re-hydrates from the
+  // in-memory store after mount once Auth has loaded the DB profile.
   const [mbtiType, setMbtiType] = useState(DEFAULT_PERSONALITY_PROFILE.mbtiType);
   const [variant, setVariant] = useState<"A" | "T" | "">(DEFAULT_PERSONALITY_PROFILE.variant);
   const [primarySpark, setPrimarySpark] = useState(DEFAULT_PERSONALITY_PROFILE.primarySpark);
@@ -372,8 +372,8 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   const [taskDislikes, setTaskDislikes] = useState<Set<string>>(
     new Set(DEFAULT_PERSONALITY_PROFILE.taskDislikes)
   );
-  const [ageRange, setAgeRange] = useState(usePrefill ? "22-25" : "");
-  const [gender, setGender] = useState(usePrefill ? "Prefer not to say" : "");
+  const [ageRange, setAgeRange] = useState("");
+  const [gender, setGender] = useState("");
   const [race, setRace] = useState("");
 
   const onValuesChangeRef = useRef(onValuesChange);
@@ -398,7 +398,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   }, [mbtiType, variant, workEnv, targetEduIndex]);
 
   // ── Shared personality profile sync ──────────────────────────────────────
-  // Re-hydrate from the persisted profile right after mount (client-only, so
+  // Re-hydrate from the in-memory store right after mount (client-only, so
   // it never conflicts with SSR output), then keep saving back on every
   // change so edits made here show up in the Dashboard's profile box too.
   const [profileHydrated, setProfileHydrated] = useState(false);

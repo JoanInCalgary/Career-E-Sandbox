@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import AppNav from "@/src/components/AppNav";
+import RequireAuth from "@/src/components/RequireAuth";
 import AssessmentForm, {
   type AssessmentFormHandle,
   type AssessmentValues,
@@ -29,7 +30,6 @@ import {
   Warning,
 } from "@phosphor-icons/react";
 import {
-  ALL_RESULT_SETS,
   CAREER_DOMAINS,
   type CareerDomain,
   type CareerMatch,
@@ -46,15 +46,13 @@ import {
 } from "@/src/lib/modelRuns";
 import { getFavouriteIds, toggleFavourite as toggleFavouriteInStore } from "@/src/lib/favourites";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function pickRandom(current?: ResultSet): ResultSet {
-  if (!current || ALL_RESULT_SETS.length <= 1) {
-    return ALL_RESULT_SETS[Math.floor(Math.random() * ALL_RESULT_SETS.length)];
-  }
-  const others = ALL_RESULT_SETS.filter((s) => s.id !== current.id);
-  return others[Math.floor(Math.random() * others.length)];
-}
+const EMPTY_RESULT_SET: ResultSet = {
+  id: "empty",
+  label: "No results yet",
+  confidencePercent: 0,
+  activeVariables: "",
+  careers: [],
+};
 
 const DEFAULT_PROVIDER: LLMProvider =
   (process.env.NEXT_PUBLIC_DEFAULT_PROVIDER as LLMProvider | undefined) ?? "gemini";
@@ -77,7 +75,7 @@ interface CareerFetchFailure {
 
 type CareerFetchOutcome = CareerFetchSuccess | CareerFetchFailure;
 
-/** Call the /api/careers route. `ok: false` triggers mock fallback, except for limitReached. */
+/** Call the /api/careers route. */
 async function fetchCareerResults(
   payload: FullAssessmentPayload,
   provider: LLMProvider
@@ -95,7 +93,10 @@ async function fetchCareerResults(
       if (res.status === 429) {
         return { ok: false, limitReached: true, message: err.error as string | undefined };
       }
-      return { ok: false };
+      return {
+        ok: false,
+        message: (err.error as string | undefined) ?? "Unable to generate career matches.",
+      };
     }
 
     const data = await res.json();
@@ -103,7 +104,7 @@ async function fetchCareerResults(
 
     if (!Array.isArray(data.careers)) {
       console.error("[fetchCareerResults] careers field missing or not an array", data);
-      return { ok: false };
+      return { ok: false, message: "Invalid response from career generator." };
     }
 
     return {
@@ -116,7 +117,7 @@ async function fetchCareerResults(
     };
   } catch (e) {
     console.error("[fetchCareerResults] fetch threw", e);
-    return { ok: false };
+    return { ok: false, message: "Network error while generating careers." };
   }
 }
 
@@ -145,24 +146,33 @@ function SparkleIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
 type View = "idle" | "loading" | "results";
 
 export default function SearchPage() {
+  return (
+    <RequireAuth active="search">
+      <SearchContent />
+    </RequireAuth>
+  );
+}
+
+function SearchContent() {
   const [preload, setPreload] = useState(false);
   const [view, setView] = useState<View>("idle");
 
   const [pillOpen, setPillOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [currentValues, setCurrentValues] = useState<AssessmentValues>({
-    mbtiType: "INTJ",
+    mbtiType: "",
     variant: "",
     workEnv: "Fully Remote",
-    targetEduIndex: 3,
+    targetEduIndex: 0,
   });
   const [activeTab, setActiveTab] = useState<"recommended" | "flagged">("recommended");
   const [domainFilter, setDomainFilter] = useState<CareerDomain>("All Domains");
   const [isCalculating, setIsCalculating] = useState(false);
   const [favourites, setFavourites] = useState<Set<string>>(new Set());
-  const [resultSet, setResultSet] = useState<ResultSet>(() => pickRandom());
+  const [resultSet, setResultSet] = useState<ResultSet>(EMPTY_RESULT_SET);
   const [activeProvider, setActiveProvider] = useState<LLMProvider>(DEFAULT_PROVIDER);
   const [usingMockData, setUsingMockData] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [searchLimitMessage, setSearchLimitMessage] = useState<string | null>(null);
   const [generatedByProvider, setGeneratedByProvider] = useState<LLMProvider | null>(null);
   const [generationTimeMs, setGenerationTimeMs] = useState<number | null>(null);
@@ -191,9 +201,7 @@ export default function SearchPage() {
         return;
       }
     }
-    if (params.get("autorun") === "true") {
-      setView("results");
-    } else if (params.get("restore") === "true") {
+    if (params.get("restore") === "true") {
       setPreload(true);
     }
   }, []);
@@ -282,8 +290,7 @@ export default function SearchPage() {
       generationTimeMs: result.generationTimeMs,
     });
 
-    // Log this run to the Results History page too, snapshotting the exact
-    // inputs that produced it so it can be reopened later.
+    // Log this run to Results History (+ Supabase recent_searches).
     saveHistoryEntry({
       timestamp,
       provider: result.provider,
@@ -303,6 +310,7 @@ export default function SearchPage() {
       isCalculatingRef.current = true;
       setIsCalculating(true);
       setSearchLimitMessage(null);
+      setGenerateError(null);
 
       if (effectivePayload) {
         const outcome = await fetchCareerResults(effectivePayload, activeProvider);
@@ -311,16 +319,13 @@ export default function SearchPage() {
         } else if (outcome.limitReached) {
           setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
         } else {
-          setResultSet((prev) => pickRandom(prev));
-          setUsingMockData(true);
+          setGenerateError(outcome.message ?? "Unable to generate career matches. Please try again.");
+          setUsingMockData(false);
           setGeneratedByProvider(null);
           setGenerationTimeMs(null);
         }
       } else {
-        setResultSet((prev) => pickRandom(prev));
-        setUsingMockData(true);
-        setGeneratedByProvider(null);
-        setGenerationTimeMs(null);
+        setGenerateError("Fill in your assessment before generating results.");
       }
 
       setActiveTab("recommended");
@@ -330,29 +335,30 @@ export default function SearchPage() {
     } else {
       setView("loading");
       setSearchLimitMessage(null);
+      setGenerateError(null);
 
       if (effectivePayload) {
         const outcome = await fetchCareerResults(effectivePayload, activeProvider);
         if (outcome.ok) {
           applyLiveResult(outcome, effectivePayload);
+          setView("results");
         } else if (outcome.limitReached) {
           setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
           setView("idle");
           return;
         } else {
-          setResultSet(pickRandom());
-          setUsingMockData(true);
+          setGenerateError(outcome.message ?? "Unable to generate career matches. Please try again.");
+          setUsingMockData(false);
           setGeneratedByProvider(null);
           setGenerationTimeMs(null);
+          setView("idle");
+          return;
         }
       } else {
-        setResultSet(pickRandom());
-        setUsingMockData(true);
-        setGeneratedByProvider(null);
-        setGenerationTimeMs(null);
+        setGenerateError("Fill in your assessment before generating results.");
+        setView("idle");
+        return;
       }
-
-      setView("results");
     }
   }
 
@@ -400,6 +406,16 @@ export default function SearchPage() {
                 <div>
                   <p className="text-sm font-semibold text-[#CC0000]">Search limit reached</p>
                   <p className="text-xs text-[#994444] mt-0.5">{searchLimitMessage}</p>
+                </div>
+              </div>
+            )}
+
+            {generateError && (
+              <div className="mb-5 flex items-start gap-3 bg-[#FFEEEE] border border-[#EE0000]/30 rounded-xl px-5 py-3">
+                <Warning weight="bold" className="w-4 h-4 text-[#CC0000] shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-[#CC0000]">Generation failed</p>
+                  <p className="text-xs text-[#994444] mt-0.5">{generateError}</p>
                 </div>
               </div>
             )}

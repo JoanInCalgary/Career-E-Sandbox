@@ -1,91 +1,88 @@
 /**
  * personalityProfile.ts
  *
- * Shared, localStorage-backed personality profile. This is the single
- * source of truth for the "core" assessment fields that appear in both:
- *   - the Search page's floating generate bar (AssessmentForm, sidebar layout)
- *   - the Dashboard's "Your Personality Profile" box (editable in place)
- *
- * Editing the profile from either surface persists here, so the other
- * surface picks up the change the next time it mounts.
+ * In-memory personality profile for the assessment UI, synced to Supabase.
+ * Populated on login via loadFromSupabase; cleared on sign-out.
  */
 
 import type { WorkEnv, OrgStructure } from "@/src/lib/formOptions";
+import { syncPersonalityDebounced } from "@/src/lib/syncToSupabase";
 
 export interface PersonalityProfile {
-  // MBTI
   mbtiType: string;
   variant: "A" | "T" | "";
-  // Sparketype
   primarySpark: string;
   secondarySpark: string;
   antiSpark: string;
-  // CliftonStrengths (top 5, may contain empty strings)
   strengths: string[];
-  // Big Five (0-100 each)
   bigFive: { O: number; C: number; E: number; A: number; N: number };
-  // Enneagram
   enneagramType: string;
-  // DiSC
   discStyle: string;
-  // Chinese Zodiac
   zodiacAnimal: string;
   zodiacElement: string;
-  // Astrology
   sunSign: string;
-  // Preferences
   workEnv: WorkEnv;
   orgStructure: OrgStructure;
   targetEduIndex: number;
   taskDislikes: string[];
 }
 
-/** First-run defaults — mirrors the values previously hardcoded as mock data. */
-export const DEFAULT_PERSONALITY_PROFILE: PersonalityProfile = {
-  mbtiType: "INTJ",
-  variant: "A",
-  primarySpark: "Maven",
-  secondarySpark: "Sage",
-  antiSpark: "Advisor",
-  strengths: ["Strategic", "Learner", "Analytical", "Ideation", ""],
-  bigFive: { O: 65, C: 70, E: 30, A: 55, N: 40 },
-  enneagramType: "Type 5 — Investigator",
-  discStyle: "Conscientiousness (C)",
-  zodiacAnimal: "Dragon",
-  zodiacElement: "Water",
-  sunSign: "Scorpio",
+/** Empty MVP defaults — no preloaded demo personality. */
+export const EMPTY_PERSONALITY_PROFILE: PersonalityProfile = {
+  mbtiType: "",
+  variant: "",
+  primarySpark: "",
+  secondarySpark: "",
+  antiSpark: "",
+  strengths: ["", "", "", "", ""],
+  bigFive: { O: 50, C: 50, E: 50, A: 50, N: 50 },
+  enneagramType: "",
+  discStyle: "",
+  zodiacAnimal: "",
+  zodiacElement: "",
+  sunSign: "",
   workEnv: "Fully Remote",
   orgStructure: "Hierarchical",
-  targetEduIndex: 3,
-  taskDislikes: ["Cold Outreach / Sales", "Repetitive Manual Tasks"],
+  targetEduIndex: 0,
+  taskDislikes: [],
 };
 
-const STORAGE_KEY = "career-e:personality-profile";
+/** @deprecated Use EMPTY_PERSONALITY_PROFILE — kept as alias for older imports. */
+export const DEFAULT_PERSONALITY_PROFILE = EMPTY_PERSONALITY_PROFILE;
 
-/** Read the persisted profile, falling back to defaults for missing/invalid fields. */
+function cloneProfile(profile: PersonalityProfile): PersonalityProfile {
+  return {
+    ...profile,
+    strengths: [...profile.strengths],
+    bigFive: { ...profile.bigFive },
+    taskDislikes: [...profile.taskDislikes],
+  };
+}
+
+let memoryProfile: PersonalityProfile = cloneProfile(EMPTY_PERSONALITY_PROFILE);
+
+/** Read the in-memory profile (hydrated from Supabase after login). */
 export function getPersonalityProfile(): PersonalityProfile {
-  if (typeof window === "undefined") return DEFAULT_PERSONALITY_PROFILE;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_PERSONALITY_PROFILE;
-    const parsed = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return DEFAULT_PERSONALITY_PROFILE;
-    return {
-      ...DEFAULT_PERSONALITY_PROFILE,
-      ...parsed,
-      bigFive: { ...DEFAULT_PERSONALITY_PROFILE.bigFive, ...(parsed.bigFive ?? {}) },
-    };
-  } catch {
-    return DEFAULT_PERSONALITY_PROFILE;
+  return cloneProfile(memoryProfile);
+}
+
+/** Persist in memory and (by default) sync to Supabase. */
+export function savePersonalityProfile(
+  profile: PersonalityProfile,
+  options?: { sync?: boolean }
+): void {
+  memoryProfile = cloneProfile(profile);
+  if (options?.sync !== false) {
+    syncPersonalityDebounced(profile);
   }
 }
 
-/** Persist the full profile. Called whenever either surface edits it. */
-export function savePersonalityProfile(profile: PersonalityProfile): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-  } catch {
-    // Storage full/unavailable — edits just won't persist across sessions.
-  }
+/** Replace memory from hydrate. Does not re-sync. */
+export function replacePersonalityProfile(profile: PersonalityProfile): void {
+  memoryProfile = cloneProfile(profile);
+}
+
+/** Clear memory (sign-out). */
+export function clearPersonalityProfile(): void {
+  memoryProfile = cloneProfile(EMPTY_PERSONALITY_PROFILE);
 }

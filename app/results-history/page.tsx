@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Clock, ClockCounterClockwise, ShareNetwork, Trash } from "@phosphor-icons/react";
 import AppNav from "@/src/components/AppNav";
+import RequireAuth from "@/src/components/RequireAuth";
 import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
 import {
   deleteHistoryEntry,
@@ -41,6 +42,14 @@ function formatTimestamp(ts: number): { date: string; time: string } {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function ResultsHistoryPage() {
+  return (
+    <RequireAuth active="results-history">
+      <ResultsHistoryContent />
+    </RequireAuth>
+  );
+}
+
+function ResultsHistoryContent() {
   const [entries, setEntries] = useState<ResultsHistoryEntry[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);

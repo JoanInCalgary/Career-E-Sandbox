@@ -26,7 +26,8 @@ import {
   BigFiveSlider,
   FieldLabel,
 } from "@/src/components/AssessmentForm";
-import { DEFAULT_USER_EMAIL, DEFAULT_USER_NAME, useAuth } from "@/src/components/AuthProvider";
+import { useAuth } from "@/src/components/AuthProvider";
+import RequireAuth from "@/src/components/RequireAuth";
 import { getHistoryEntries, topRecommendedCareer, type ResultsHistoryEntry } from "@/src/lib/modelRuns";
 import { mbtiOptions } from "@/src/lib/mockData";
 import { getFavourites, removeFavourite, type FavouriteCareer } from "@/src/lib/favourites";
@@ -49,6 +50,7 @@ import {
   savePersonalityProfile,
   type PersonalityProfile,
 } from "@/src/lib/personalityProfile";
+import { syncPersonalityNow } from "@/src/lib/syncToSupabase";
 
 /** Max number of entries shown in the dashboard's compact Recent History list. */
 const RECENT_HISTORY_LIMIT = 3;
@@ -276,9 +278,17 @@ function DashFavCard({ fav, onDelete }: { fav: FavItem; onDelete: (id: string) =
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  return (
+    <RequireAuth active="dashboard">
+      <DashboardContent />
+    </RequireAuth>
+  );
+}
+
+function DashboardContent() {
   const { user } = useAuth();
-  const name = user?.name ?? DEFAULT_USER_NAME;
-  const email = user?.email ?? DEFAULT_USER_EMAIL;
+  const name = user!.name;
+  const email = user!.email;
 
   const [favourites, setFavourites] = useState<FavItem[]>([]);
   const [favouritesHydrated, setFavouritesHydrated] = useState(false);
@@ -321,7 +331,8 @@ export default function DashboardPage() {
   }
 
   function saveEditingProfile() {
-    savePersonalityProfile(draftProfile);
+    savePersonalityProfile(draftProfile, { sync: false });
+    void syncPersonalityNow(draftProfile);
     setProfile(draftProfile);
     setEditingProfile(false);
   }
@@ -352,6 +363,10 @@ export default function DashboardPage() {
     });
   }
 
+  const hasCompletedSearch = historyHydrated && historyEntries.length > 0;
+  const profileReady = profileHydrated && historyHydrated;
+  const showProfileEmptyState = profileReady && !hasCompletedSearch;
+
   const mbtiDisplay = `${profile.mbtiType}${profile.variant ? `-${profile.variant}` : ""}`;
   const sparkDisplay = `${profile.primarySpark || "—"} · ${profile.secondarySpark || "—"} · Anti: ${
     profile.antiSpark || "—"
@@ -371,7 +386,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5 mb-8">
           <div>
             <p className="text-sm font-semibold text-[#FF5500] uppercase tracking-widest mb-1">
-              Welcome back
+              {historyHydrated && !hasCompletedSearch ? "Welcome" : "Welcome back"}
             </p>
             <h1 className="text-3xl md:text-4xl font-bold text-[#111111] tracking-tight leading-tight">
               {name}
@@ -380,11 +395,11 @@ export default function DashboardPage() {
           </div>
 
           <Link
-            href="/search?restore=true"
+            href={hasCompletedSearch ? "/search?restore=true" : "/search"}
             className="inline-flex items-center gap-2 self-start bg-[#FF5500] hover:bg-[#DD4400] transition-colors text-white font-semibold text-sm px-6 py-3 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.2)]"
           >
             <MagnifyingGlass weight="bold" className="w-4 h-4" />
-            Search Again
+            {historyHydrated && !hasCompletedSearch ? "Start Searching" : "Search Again"}
           </Link>
         </div>
 
@@ -395,7 +410,7 @@ export default function DashboardPage() {
               <User weight="bold" className="w-4 h-4 text-[#FF5500]" />
               <h2 className="text-sm font-bold text-[#111111]">Your Personality Profile</h2>
             </div>
-            {profileHydrated && !editingProfile && (
+            {profileReady && !editingProfile && hasCompletedSearch && (
               <button
                 type="button"
                 onClick={startEditingProfile}
@@ -412,7 +427,25 @@ export default function DashboardPage() {
               : "Powers your career matches — synced with the Search page's generate bar."}
           </p>
 
-          {!editingProfile ? (
+          {!profileReady ? null : showProfileEmptyState ? (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center rounded-xl border border-dashed border-[#E8E8E8] bg-[#F5F5F5]">
+              <div className="w-10 h-10 rounded-full bg-cream border border-[#E8E8E8] flex items-center justify-center mb-3">
+                <MagnifyingGlass weight="bold" className="w-5 h-5 text-[#FF5500]" />
+              </div>
+              <p className="text-sm font-semibold text-[#111111] mb-1">You haven&apos;t run a search yet</p>
+              <p className="text-xs text-[#555555] max-w-sm mb-4">
+                Your personality profile will show up here after you complete a career search.
+                Head to Search to enter your assessments and generate matches.
+              </p>
+              <Link
+                href="/search"
+                className="inline-flex items-center gap-2 bg-[#FF5500] hover:bg-[#DD4400] transition-colors text-white font-semibold text-sm px-5 py-2.5 rounded-lg"
+              >
+                <MagnifyingGlass weight="bold" className="w-4 h-4" />
+                Go to Search
+              </Link>
+            </div>
+          ) : !editingProfile ? (
             <div className="grid grid-cols-1 sm:grid-cols-1">
               <div>
                 <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Assessments</p>

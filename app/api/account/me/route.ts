@@ -1,14 +1,19 @@
 /**
- * GET    /api/account/me  — current account (from session cookie) + search usage
+ * GET    /api/account/me  — current account + search usage
  * PATCH  /api/account/me  — update name / email / password / profile / engagement
- * DELETE /api/account/me  — permanently delete the current account
+ * DELETE /api/account/me  — permanently delete the current Auth user (+ cascaded rows)
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { accountStore, AccountError, toPublicAccount } from "@/src/lib/server/accountStore";
+import {
+  AccountError,
+  deleteAccount,
+  getSearchUsage,
+  toPublicAccount,
+  updateAccount,
+  verifyCurrentPassword,
+} from "@/src/lib/server/accountStore";
 import { getCurrentAccount } from "@/src/lib/server/currentAccount";
-import { destroyAllSessionsForAccount, SESSION_COOKIE } from "@/src/lib/server/session";
 import type { FullAssessmentPayload } from "@/src/lib/types";
 
 export async function GET() {
@@ -16,7 +21,7 @@ export async function GET() {
   if (!account) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
-  const usage = await accountStore.getSearchUsage(account.id);
+  const usage = await getSearchUsage(account.id);
   return NextResponse.json({ account: toPublicAccount(account), usage }, { status: 200 });
 }
 
@@ -40,17 +45,18 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Changing email or password requires re-confirming the current password,
-  // same as most account-settings flows.
   const changesEmailOrPassword = Boolean(body.newPassword || body.email);
   if (changesEmailOrPassword) {
     if (!body.currentPassword) {
       return NextResponse.json(
-        { error: "Enter your current password to change your email or password.", code: "CURRENT_PASSWORD_REQUIRED" },
+        {
+          error: "Enter your current password to change your email or password.",
+          code: "CURRENT_PASSWORD_REQUIRED",
+        },
         { status: 400 }
       );
     }
-    const verified = await accountStore.verifyPassword(account.email, body.currentPassword);
+    const verified = await verifyCurrentPassword(account.email, body.currentPassword);
     if (!verified) {
       return NextResponse.json(
         { error: "Current password is incorrect.", code: "INVALID_CREDENTIALS" },
@@ -60,14 +66,14 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const updated = await accountStore.update(account.id, {
+    const updated = await updateAccount(account.id, {
       name: body.name,
       email: body.email,
       password: body.newPassword,
       profile: body.profile,
       engagement: body.engagement,
     });
-    const usage = await accountStore.getSearchUsage(updated.id);
+    const usage = await getSearchUsage(updated.id);
     return NextResponse.json({ account: toPublicAccount(updated), usage }, { status: 200 });
   } catch (err) {
     if (err instanceof AccountError) {
@@ -89,11 +95,11 @@ export async function DELETE(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    // Body is optional for DELETE, but if present it must be valid JSON.
+    // optional body
   }
 
   if (body.currentPassword) {
-    const verified = await accountStore.verifyPassword(account.email, body.currentPassword);
+    const verified = await verifyCurrentPassword(account.email, body.currentPassword);
     if (!verified) {
       return NextResponse.json(
         { error: "Current password is incorrect.", code: "INVALID_CREDENTIALS" },
@@ -102,11 +108,14 @@ export async function DELETE(req: NextRequest) {
     }
   }
 
-  await accountStore.delete(account.id);
-  destroyAllSessionsForAccount(account.id);
-
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
-
-  return NextResponse.json({ ok: true }, { status: 200 });
+  try {
+    await deleteAccount(account.id);
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (err) {
+    if (err instanceof AccountError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: 400 });
+    }
+    console.error("[/api/account/me] DELETE error:", err);
+    return NextResponse.json({ error: "Unable to delete account." }, { status: 500 });
+  }
 }

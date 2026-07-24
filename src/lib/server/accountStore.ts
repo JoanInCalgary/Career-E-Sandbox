@@ -1,84 +1,34 @@
 /**
  * accountStore.ts  (server-only)
  *
- * Account persistence for user accounts + profiles. This is intentionally
- * written as a small interface (`AccountStore`) plus one concrete
- * implementation (`FileAccountStore`) so the rest of the app never talks to
- * storage directly — only to the interface.
- *
- * ── Swapping in a real database later ──────────────────────────────────────
- * When this project moves off the sandbox and onto e.g. Postgres/Prisma,
- * Supabase, or similar:
- *   1. Write a new class that implements `AccountStore` against the real DB
- *      (e.g. `PrismaAccountStore`).
- *   2. Change the `accountStore` export at the bottom of this file to a new
- *      instance of that class.
- * No other file in the app imports `FileAccountStore` directly — everything
- * (API routes) imports the `accountStore` singleton and the `Account` /
- * `AccountStore` types, so the swap is a one-file change.
- *
- * For now, `FileAccountStore` keeps accounts in memory and mirrors them to a
- * JSON file under `.data/accounts.json` (gitignored) so accounts survive a
- * dev server restart. This is a POC-grade persistence layer, not a database.
- *
- * Do not import this file from a "use client" component — it uses Node's
- * `fs` and `crypto` modules and must only be reached from route handlers /
- * other server-only code.
+ * Account / profile persistence against Supabase Auth + public.users /
+ * public.personality. Passwords and sessions are owned by Supabase Auth.
  */
 
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import { createAdminClient, hasServiceRoleKey } from "@/src/lib/supabase/admin";
+import { createClient } from "@/src/lib/supabase/server";
 import type { FullAssessmentPayload } from "@/src/lib/types";
-
-// ── Search limit policy ──────────────────────────────────────────────────────
-//
-// Every account gets a rolling search allowance. Once `SEARCH_LIMIT_PER_PERIOD`
-// searches have been used within `SEARCH_PERIOD_MS`, further searches are
-// blocked until the period rolls over. This is deliberately simple (no
-// tiers/plans yet) but each account stores its own `searchLimit`, so a future
-// subscription/tier system can vary the limit per account without changing
-// the enforcement logic.
 
 export const SEARCH_LIMIT_PER_PERIOD = 20;
 export const SEARCH_PERIOD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export interface Account {
   id: string;
   name: string;
-  /** Always stored lowercase/trimmed; treated as the unique login identifier. */
   email: string;
-  passwordHash: string;
-  passwordSalt: string;
   createdAt: number;
   updatedAt: number;
-  /** Latest saved personality/preference assessment, if any. */
   profile: FullAssessmentPayload | null;
-  /** Optional engagement opt-ins collected at signup (newsletter, focus group, demo). */
   engagement: string[];
   searchCount: number;
   searchPeriodStart: number;
   searchLimit: number;
 }
 
-/** Account shape safe to send to the client (never leaks password material). */
-export type PublicAccount = Omit<Account, "passwordHash" | "passwordSalt">;
+export type PublicAccount = Account;
 
 export function toPublicAccount(account: Account): PublicAccount {
-  return {
-    id: account.id,
-    name: account.name,
-    email: account.email,
-    createdAt: account.createdAt,
-    updatedAt: account.updatedAt,
-    profile: account.profile,
-    engagement: account.engagement,
-    searchCount: account.searchCount,
-    searchPeriodStart: account.searchPeriodStart,
-    searchLimit: account.searchLimit,
-  };
+  return { ...account };
 }
 
 export interface SearchUsage {
@@ -98,14 +48,20 @@ export interface CreateAccountInput {
 export interface UpdateAccountInput {
   name?: string;
   email?: string;
-  /** New password. Callers must have already verified the current password. */
   password?: string;
   profile?: FullAssessmentPayload | null;
   engagement?: string[];
 }
 
 export class AccountError extends Error {
-  code: "EMAIL_TAKEN" | "NOT_FOUND" | "INVALID_CREDENTIALS" | "WEAK_PASSWORD" | "INVALID_EMAIL";
+  code:
+    | "EMAIL_TAKEN"
+    | "NOT_FOUND"
+    | "INVALID_CREDENTIALS"
+    | "WEAK_PASSWORD"
+    | "INVALID_EMAIL"
+    | "EMAIL_NOT_CONFIRMED"
+    | "SERVICE_ROLE_REQUIRED";
   constructor(code: AccountError["code"], message: string) {
     super(message);
     this.code = code;
@@ -113,32 +69,26 @@ export class AccountError extends Error {
   }
 }
 
-export interface AccountStore {
-  create(input: CreateAccountInput): Promise<Account>;
-  findByEmail(email: string): Promise<Account | null>;
-  findById(id: string): Promise<Account | null>;
-  update(id: string, patch: UpdateAccountInput): Promise<Account>;
-  delete(id: string): Promise<boolean>;
-  verifyPassword(email: string, password: string): Promise<Account | null>;
-  /** Attempts to record one search against the account's rolling allowance. */
-  recordSearch(id: string): Promise<{ ok: boolean; usage: SearchUsage }>;
-  getSearchUsage(id: string): Promise<SearchUsage | null>;
+export interface SignUpResult {
+  account: Account | null;
+  usage: SearchUsage | null;
+  /** True when Auth created the user but email confirmation is required before a session exists. */
+  needsEmailConfirmation: boolean;
 }
 
-// ── Password hashing (scrypt, no external deps) ─────────────────────────────
+type UserRow = {
+  id: string;
+  name: string;
+  search_count: number;
+  search_period_start: string;
+  search_limit: number;
+  created_at: string;
+  updated_at: string;
+};
 
-function hashPassword(password: string): { hash: string; salt: string } {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return { hash, salt };
-}
-
-function verifyPasswordHash(password: string, salt: string, expectedHash: string): boolean {
-  const actual = scryptSync(password, salt, 64);
-  const expected = Buffer.from(expectedHash, "hex");
-  if (actual.length !== expected.length) return false;
-  return timingSafeEqual(actual, expected);
-}
+type PersonalityRow = {
+  profile: FullAssessmentPayload | Record<string, unknown> | null;
+};
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -146,187 +96,315 @@ function normalizeEmail(email: string): string {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// ── File-backed in-memory implementation ─────────────────────────────────────
-
-const DATA_FILE = join(process.cwd(), ".data", "accounts.json");
-
-function loadFromDisk(): Map<string, Account> {
-  try {
-    const raw = readFileSync(DATA_FILE, "utf-8");
-    const parsed = JSON.parse(raw) as Account[];
-    return new Map(parsed.map((a) => [a.id, a]));
-  } catch {
-    return new Map();
-  }
+function isEmptyProfile(profile: FullAssessmentPayload | Record<string, unknown> | null): boolean {
+  if (!profile || typeof profile !== "object") return true;
+  return Object.keys(profile).length === 0;
 }
 
-function saveToDisk(accounts: Map<string, Account>): void {
-  try {
-    mkdirSync(dirname(DATA_FILE), { recursive: true });
-    writeFileSync(DATA_FILE, JSON.stringify(Array.from(accounts.values()), null, 2), "utf-8");
-  } catch (err) {
-    // POC-grade persistence — if the disk write fails we keep serving from
-    // memory rather than crashing the request. Swap to a real DB to remove
-    // this limitation.
-    console.error("[accountStore] failed to persist accounts to disk:", err);
-  }
+function toAccount(
+  row: UserRow,
+  email: string,
+  personality: PersonalityRow | null,
+  engagement: string[]
+): Account {
+  const profile = personality?.profile ?? null;
+  return {
+    id: row.id,
+    name: row.name,
+    email,
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at).getTime(),
+    profile: isEmptyProfile(profile) ? null : (profile as FullAssessmentPayload),
+    engagement,
+    searchCount: row.search_count,
+    searchPeriodStart: new Date(row.search_period_start).getTime(),
+    searchLimit: row.search_limit,
+  };
 }
 
-class FileAccountStore implements AccountStore {
-  private accounts: Map<string, Account>;
+function usageFor(account: Account): SearchUsage {
+  const now = Date.now();
+  const periodExpired = now - account.searchPeriodStart >= SEARCH_PERIOD_MS;
+  const used = periodExpired ? 0 : account.searchCount;
+  const periodStart = periodExpired ? now : account.searchPeriodStart;
+  return {
+    used,
+    limit: account.searchLimit,
+    remaining: Math.max(0, account.searchLimit - used),
+    periodResetsAt: periodStart + SEARCH_PERIOD_MS,
+  };
+}
 
-  constructor() {
-    this.accounts = loadFromDisk();
+async function loadEngagementKinds(userId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("engagement")
+    .select("kind")
+    .eq("user_id", userId)
+    .eq("opted_in", true);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.kind as string);
+}
+
+async function replaceEngagementKinds(userId: string, kinds: string[]): Promise<void> {
+  const supabase = await createClient();
+  const { error: delError } = await supabase.from("engagement").delete().eq("user_id", userId);
+  if (delError) throw delError;
+
+  const unique = [...new Set(kinds.filter((k) => typeof k === "string" && k.trim()))];
+  if (unique.length === 0) return;
+
+  const { error: insError } = await supabase.from("engagement").insert(
+    unique.map((kind) => ({
+      user_id: userId,
+      kind,
+      opted_in: true,
+    }))
+  );
+  if (insError) throw insError;
+}
+
+async function loadAccountById(id: string, email: string): Promise<Account | null> {
+  const supabase = await createClient();
+  const { data: row, error } = await supabase.from("users").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!row) return null;
+
+  const { data: personality } = await supabase
+    .from("personality")
+    .select("profile")
+    .eq("user_id", id)
+    .maybeSingle();
+
+  const engagement = await loadEngagementKinds(id);
+  return toAccount(row as UserRow, email, personality as PersonalityRow | null, engagement);
+}
+
+/** Load the signed-in user's account (Auth user + profile + personality). */
+export async function getAccountForAuthUser(user: {
+  id: string;
+  email?: string | null;
+}): Promise<Account | null> {
+  return loadAccountById(user.id, user.email ?? "");
+}
+
+export async function signUpAccount(input: CreateAccountInput): Promise<SignUpResult> {
+  const email = normalizeEmail(input.email);
+  if (!EMAIL_RE.test(email)) {
+    throw new AccountError("INVALID_EMAIL", "Please enter a valid email address.");
+  }
+  if (input.password.length < 8) {
+    throw new AccountError("WEAK_PASSWORD", "Password must be at least 8 characters.");
   }
 
-  private persist() {
-    saveToDisk(this.accounts);
-  }
+  const supabase = await createClient();
+  const name = input.name.trim() || "New User";
+  const engagement = input.engagement ?? [];
 
-  private byEmail(email: string): Account | undefined {
-    const normalized = normalizeEmail(email);
-    for (const account of this.accounts.values()) {
-      if (account.email === normalized) return account;
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: input.password,
+    options: {
+      data: { name, engagement },
+    },
+  });
+
+  if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("already") || msg.includes("registered")) {
+      throw new AccountError("EMAIL_TAKEN", "An account with that email already exists.");
     }
-    return undefined;
+    throw new AccountError("INVALID_EMAIL", error.message);
   }
 
-  async create(input: CreateAccountInput): Promise<Account> {
-    const email = normalizeEmail(input.email);
+  const needsEmailConfirmation = !data.session;
+  if (!data.user) {
+    return { account: null, usage: null, needsEmailConfirmation: true };
+  }
+
+  // Trigger creates users + personality + engagement rows from metadata.
+  // If we already have a session, refresh name on the profile row.
+  if (data.session) {
+    await supabase
+      .from("users")
+      .update({ name, updated_at: new Date().toISOString() })
+      .eq("id", data.user.id);
+  }
+
+  const account = await loadAccountById(data.user.id, email);
+  return {
+    account,
+    usage: account ? usageFor(account) : null,
+    needsEmailConfirmation,
+  };
+}
+
+export async function signInAccount(email: string, password: string): Promise<Account> {
+  const normalized = normalizeEmail(email);
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: normalized,
+    password,
+  });
+
+  if (error || !data.user) {
+    const msg = (error?.message ?? "").toLowerCase();
+    if (msg.includes("confirm") || msg.includes("not confirmed")) {
+      throw new AccountError(
+        "EMAIL_NOT_CONFIRMED",
+        "Please confirm your email before signing in. Check your inbox for the verification link."
+      );
+    }
+    throw new AccountError("INVALID_CREDENTIALS", "Incorrect email or password.");
+  }
+
+  const account = await loadAccountById(data.user.id, data.user.email ?? normalized);
+  if (!account) {
+    throw new AccountError("NOT_FOUND", "Account profile not found. Try signing up again.");
+  }
+  return account;
+}
+
+export async function signOutAccount(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+}
+
+export async function findAccountById(id: string, email: string): Promise<Account | null> {
+  return loadAccountById(id, email);
+}
+
+export async function updateAccount(id: string, patch: UpdateAccountInput): Promise<Account> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || user.id !== id) {
+    throw new AccountError("NOT_FOUND", "Account not found.");
+  }
+
+  if (patch.email !== undefined) {
+    const email = normalizeEmail(patch.email);
     if (!EMAIL_RE.test(email)) {
       throw new AccountError("INVALID_EMAIL", "Please enter a valid email address.");
     }
-    if (input.password.length < 8) {
+    const { error } = await supabase.auth.updateUser({ email });
+    if (error) {
+      throw new AccountError("EMAIL_TAKEN", error.message);
+    }
+  }
+
+  if (patch.password !== undefined) {
+    if (patch.password.length < 8) {
       throw new AccountError("WEAK_PASSWORD", "Password must be at least 8 characters.");
     }
-    if (this.byEmail(email)) {
-      throw new AccountError("EMAIL_TAKEN", "An account with that email already exists.");
+    const { error } = await supabase.auth.updateUser({ password: patch.password });
+    if (error) {
+      throw new AccountError("WEAK_PASSWORD", error.message);
     }
-
-    const { hash, salt } = hashPassword(input.password);
-    const now = Date.now();
-    const account: Account = {
-      id: randomUUID(),
-      name: input.name.trim() || "New User",
-      email,
-      passwordHash: hash,
-      passwordSalt: salt,
-      createdAt: now,
-      updatedAt: now,
-      profile: null,
-      engagement: input.engagement ?? [],
-      searchCount: 0,
-      searchPeriodStart: now,
-      searchLimit: SEARCH_LIMIT_PER_PERIOD,
-    };
-    this.accounts.set(account.id, account);
-    this.persist();
-    return account;
   }
 
-  async findByEmail(email: string): Promise<Account | null> {
-    return this.byEmail(email) ?? null;
+  const userUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.name !== undefined) {
+    userUpdates.name = patch.name.trim() || "New User";
+    const { error } = await supabase.from("users").update(userUpdates).eq("id", id);
+    if (error) throw error;
   }
 
-  async findById(id: string): Promise<Account | null> {
-    return this.accounts.get(id) ?? null;
+  if (patch.engagement !== undefined) {
+    await replaceEngagementKinds(id, patch.engagement);
   }
 
-  async update(id: string, patch: UpdateAccountInput): Promise<Account> {
-    const existing = this.accounts.get(id);
-    if (!existing) throw new AccountError("NOT_FOUND", "Account not found.");
-
-    let email = existing.email;
-    if (patch.email !== undefined) {
-      email = normalizeEmail(patch.email);
-      if (!EMAIL_RE.test(email)) {
-        throw new AccountError("INVALID_EMAIL", "Please enter a valid email address.");
-      }
-      const clash = this.byEmail(email);
-      if (clash && clash.id !== id) {
-        throw new AccountError("EMAIL_TAKEN", "An account with that email already exists.");
-      }
-    }
-
-    let passwordHash = existing.passwordHash;
-    let passwordSalt = existing.passwordSalt;
-    if (patch.password !== undefined) {
-      if (patch.password.length < 8) {
-        throw new AccountError("WEAK_PASSWORD", "Password must be at least 8 characters.");
-      }
-      const { hash, salt } = hashPassword(patch.password);
-      passwordHash = hash;
-      passwordSalt = salt;
-    }
-
-    const updated: Account = {
-      ...existing,
-      name: patch.name !== undefined ? patch.name.trim() || existing.name : existing.name,
-      email,
-      passwordHash,
-      passwordSalt,
-      profile: patch.profile !== undefined ? patch.profile : existing.profile,
-      engagement: patch.engagement !== undefined ? patch.engagement : existing.engagement,
-      updatedAt: Date.now(),
-    };
-    this.accounts.set(id, updated);
-    this.persist();
-    return updated;
+  if (patch.profile !== undefined) {
+    const { error } = await supabase.from("personality").upsert({
+      user_id: id,
+      profile: patch.profile ?? {},
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
   }
 
-  async delete(id: string): Promise<boolean> {
-    const existed = this.accounts.delete(id);
-    if (existed) this.persist();
-    return existed;
-  }
-
-  async verifyPassword(email: string, password: string): Promise<Account | null> {
-    const account = this.byEmail(email);
-    if (!account) return null;
-    const ok = verifyPasswordHash(password, account.passwordSalt, account.passwordHash);
-    return ok ? account : null;
-  }
-
-  private usageFor(account: Account): SearchUsage {
-    const now = Date.now();
-    const periodExpired = now - account.searchPeriodStart >= SEARCH_PERIOD_MS;
-    const used = periodExpired ? 0 : account.searchCount;
-    const periodStart = periodExpired ? now : account.searchPeriodStart;
-    return {
-      used,
-      limit: account.searchLimit,
-      remaining: Math.max(0, account.searchLimit - used),
-      periodResetsAt: periodStart + SEARCH_PERIOD_MS,
-    };
-  }
-
-  async getSearchUsage(id: string): Promise<SearchUsage | null> {
-    const account = this.accounts.get(id);
-    if (!account) return null;
-    return this.usageFor(account);
-  }
-
-  async recordSearch(id: string): Promise<{ ok: boolean; usage: SearchUsage }> {
-    const account = this.accounts.get(id);
-    if (!account) throw new AccountError("NOT_FOUND", "Account not found.");
-
-    const now = Date.now();
-    if (now - account.searchPeriodStart >= SEARCH_PERIOD_MS) {
-      account.searchPeriodStart = now;
-      account.searchCount = 0;
-    }
-
-    if (account.searchCount >= account.searchLimit) {
-      return { ok: false, usage: this.usageFor(account) };
-    }
-
-    account.searchCount += 1;
-    account.updatedAt = now;
-    this.accounts.set(id, account);
-    this.persist();
-    return { ok: true, usage: this.usageFor(account) };
-  }
+  const account = await loadAccountById(id, patch.email ? normalizeEmail(patch.email) : user.email ?? "");
+  if (!account) throw new AccountError("NOT_FOUND", "Account not found.");
+  return account;
 }
 
-// Swap this line to point at a real DB-backed implementation later.
-export const accountStore: AccountStore = new FileAccountStore();
+export async function deleteAccount(id: string): Promise<void> {
+  if (!hasServiceRoleKey()) {
+    throw new AccountError(
+      "SERVICE_ROLE_REQUIRED",
+      "Account deletion requires SUPABASE_SERVICE_ROLE_KEY in the server environment."
+    );
+  }
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.deleteUser(id);
+  if (error) throw error;
+}
+
+export async function verifyCurrentPassword(email: string, password: string): Promise<boolean> {
+  // Use a throwaway client so we don't overwrite the current session cookies.
+  // Re-auth via password grant against the Auth API.
+  const { createClient: createSb } = await import("@supabase/supabase-js");
+  const { getSupabaseAnonKey, getSupabaseUrl } = await import("@/src/lib/supabase/env");
+  const client = createSb(getSupabaseUrl(), getSupabaseAnonKey());
+  const { error } = await client.auth.signInWithPassword({
+    email: normalizeEmail(email),
+    password,
+  });
+  return !error;
+}
+
+export async function getSearchUsage(id: string): Promise<SearchUsage | null> {
+  const supabase = await createClient();
+  const { data: row, error } = await supabase.from("users").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!row) return null;
+  const account = toAccount(row as UserRow, "", null, []);
+  return usageFor(account);
+}
+
+export async function recordSearch(id: string): Promise<{ ok: boolean; usage: SearchUsage }> {
+  const supabase = await createClient();
+  const { data: row, error } = await supabase.from("users").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!row) throw new AccountError("NOT_FOUND", "Account not found.");
+
+  const account = toAccount(row as UserRow, "", null, []);
+  const now = Date.now();
+  let searchCount = account.searchCount;
+  let searchPeriodStart = account.searchPeriodStart;
+
+  if (now - searchPeriodStart >= SEARCH_PERIOD_MS) {
+    searchPeriodStart = now;
+    searchCount = 0;
+  }
+
+  const provisional = { ...account, searchCount, searchPeriodStart };
+  if (searchCount >= account.searchLimit) {
+    return { ok: false, usage: usageFor(provisional) };
+  }
+
+  searchCount += 1;
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({
+      search_count: searchCount,
+      search_period_start: new Date(searchPeriodStart).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (updateError) throw updateError;
+
+  return {
+    ok: true,
+    usage: usageFor({ ...account, searchCount, searchPeriodStart }),
+  };
+}
+
+/** @deprecated Prefer named exports; kept for gradual migration of call sites. */
+export const accountStore = {
+  getSearchUsage,
+  recordSearch,
+  update: updateAccount,
+  delete: deleteAccount,
+};
