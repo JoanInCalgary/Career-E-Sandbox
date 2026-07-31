@@ -1,6 +1,6 @@
 export const SPARKETYPE_OPTIONS = [
   "Maker", "Performer", "Warrior", "Sage", "Advisor",
-  "Nurturer", "Investigator", "Maven", "Scientist",
+  "Nurturer", "Investigator", "Maven", "Scientist", "Essentialist",
 ].map((s) => ({ value: s, label: s }));
 
 export const CLIFTON_STRENGTHS = [

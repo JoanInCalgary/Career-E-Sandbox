@@ -37,4 +37,11 @@ export interface FullAssessmentPayload {
   race: string;
   /** Which optional field blocks are enabled by the user */
   enabledOptional: string[];
+  /**
+   * Which assessment frameworks (mbti, spark, clifton, bigfive, ennea, disc,
+   * zodiac, astro) the user wants factored into their matches. Lets users
+   * freely toggle individual assessments on/off without clearing their
+   * answers — part of the sandbox "freedom to enable/disable" design.
+   */
+  enabledAssessments: string[];
 }

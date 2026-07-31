@@ -1417,11 +1417,21 @@ export interface MbtiProfile {
 
 export const mbtiOptions = [
   { type: "INTJ", label: "INTJ (Architect)" },
-  { type: "INFJ", label: "INFJ (Advocate)" },
-  { type: "ENFP", label: "ENFP (Campaigner)" },
-  { type: "ENTP", label: "ENTP (Debater)" },
-  { type: "ISTJ", label: "ISTJ (Logistician)" },
+  { type: "INTP", label: "INTP (Logician)" },
   { type: "ENTJ", label: "ENTJ (Commander)" },
+  { type: "ENTP", label: "ENTP (Debater)" },
+  { type: "INFJ", label: "INFJ (Advocate)" },
+  { type: "INFP", label: "INFP (Mediator)" },
+  { type: "ENFJ", label: "ENFJ (Protagonist)" },
+  { type: "ENFP", label: "ENFP (Campaigner)" },
+  { type: "ISTJ", label: "ISTJ (Logistician)" },
+  { type: "ISFJ", label: "ISFJ (Defender)" },
+  { type: "ESTJ", label: "ESTJ (Executive)" },
+  { type: "ESFJ", label: "ESFJ (Consul)" },
+  { type: "ISTP", label: "ISTP (Virtuoso)" },
+  { type: "ISFP", label: "ISFP (Adventurer)" },
+  { type: "ESTP", label: "ESTP (Entrepreneur)" },
+  { type: "ESFP", label: "ESFP (Entertainer)" },
 ];
 
 export function getProfile(type: string): MbtiProfile {

@@ -34,6 +34,10 @@ function payloadToPersonality(
     orgStructure: payload.orgStructure ?? "Hierarchical",
     targetEduIndex: payload.targetEduIndex ?? 0,
     taskDislikes: payload.taskDislikes ?? [],
+    optionalEnabled:
+      "optionalEnabled" in payload
+        ? payload.optionalEnabled ?? []
+        : (payload as FullAssessmentPayload).enabledOptional ?? [],
   };
 }
 

@@ -16,10 +16,8 @@ import {
   User,
   Clock,
   PencilSimple,
-  Scales,
 } from "@phosphor-icons/react";
 import AppNav from "@/src/components/AppNav";
-import ModelComparisonPanel from "@/src/components/ModelComparisonPanel";
 import {
   StyledSelect,
   PillGroup,
@@ -97,6 +95,21 @@ function toFavItem(entry: FavouriteCareer): FavItem {
     pros: c.pros,
     cons: c.cons,
   };
+}
+
+/** Small "count this toward my matches" checkbox used on optional preference fields. */
+function IncludeToggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="w-3 h-3 accent-[#FF5500] cursor-pointer"
+      />
+      <span className="text-[9px] font-bold text-[#888888] uppercase tracking-wide">Include</span>
+    </label>
+  );
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -294,7 +307,6 @@ function DashboardContent() {
   const [favouritesHydrated, setFavouritesHydrated] = useState(false);
   const [historyEntries, setHistoryEntries] = useState<ResultsHistoryEntry[]>([]);
   const [historyHydrated, setHistoryHydrated] = useState(false);
-  const [rightTab, setRightTab] = useState<"history" | "models">("history");
 
   // ── Personality profile — shared with the Search page's generate bar ──
   const [profile, setProfile] = useState<PersonalityProfile>(DEFAULT_PERSONALITY_PROFILE);
@@ -353,6 +365,14 @@ function DashboardContent() {
     setDraftProfile((prev) => ({ ...prev, bigFive: { ...prev.bigFive, [trait]: v } }));
   }
 
+  function toggleDraftOptional(id: string) {
+    setDraftProfile((prev) => {
+      const enabled = new Set(prev.optionalEnabled ?? []);
+      enabled.has(id) ? enabled.delete(id) : enabled.add(id);
+      return { ...prev, optionalEnabled: Array.from(enabled) };
+    });
+  }
+
   function toggleDraftTaskDislike(task: string) {
     setDraftProfile((prev) => {
       const has = prev.taskDislikes.includes(task);
@@ -374,8 +394,16 @@ function DashboardContent() {
   const bigFiveDisplay = `O:${profile.bigFive.O} C:${profile.bigFive.C} E:${profile.bigFive.E} A:${profile.bigFive.A} N:${profile.bigFive.N}`;
   const cliftonDisplay = profile.strengths.filter(Boolean).join(" · ") || "—";
   const zodiacDisplay = `${profile.zodiacAnimal || "—"} — ${profile.zodiacElement || "—"}`;
+  const optionalEnabled = new Set(profile.optionalEnabled ?? []);
+  const workEnvDisplay = optionalEnabled.has("workEnv") ? profile.workEnv : "Not set";
+  const orgStructureDisplay = optionalEnabled.has("orgStructure") ? profile.orgStructure : "Not set";
+  const targetEduDisplay = optionalEnabled.has("targetEdu")
+    ? EDU_TARGET_LABELS[profile.targetEduIndex]
+    : "Not set";
   const taskDislikesDisplay =
-    profile.taskDislikes.length > 0 ? profile.taskDislikes.join(" · ") : "None selected";
+    optionalEnabled.has("taskDislikes") && profile.taskDislikes.length > 0
+      ? profile.taskDislikes.join(" · ")
+      : "Not set";
 
   return (
     <div className="min-h-screen bg-cream">
@@ -471,14 +499,20 @@ function DashboardContent() {
                 <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Preferences</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { label: "Work Environment", value: profile.workEnv },
-                    { label: "Target Education", value: EDU_TARGET_LABELS[profile.targetEduIndex] },
+                    { label: "Work Environment", value: workEnvDisplay },
+                    { label: "Target Education", value: targetEduDisplay },
                     { label: "Task Dislikes", value: taskDislikesDisplay },
-                    { label: "Org Structure", value: profile.orgStructure },
+                    { label: "Org Structure", value: orgStructureDisplay },
                   ].map(({ label, value }) => (
                     <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-2.5 py-1.5">
                       <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
-                      <p className="text-[10px] font-semibold text-[#111111] leading-snug">{value}</p>
+                      <p
+                        className={`text-[10px] font-semibold leading-snug ${
+                          value === "Not set" ? "text-[#AAAAAA] italic" : "text-[#111111]"
+                        }`}
+                      >
+                        {value}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -492,31 +526,12 @@ function DashboardContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <FieldLabel>MBTI Type</FieldLabel>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <StyledSelect
-                          value={draftProfile.mbtiType}
-                          onChange={(v) => updateDraft("mbtiType", v)}
-                          options={mbtiOptions.map((o) => ({ value: o.type, label: o.label }))}
-                        />
-                      </div>
-                      <div className="flex gap-1.5 shrink-0">
-                        {(["A", "T"] as const).map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => updateDraft("variant", draftProfile.variant === v ? "" : v)}
-                            className={`px-2.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                              draftProfile.variant === v
-                                ? "bg-[#FF5500] text-white border border-[#FF5500]"
-                                : "bg-cream text-[#888888] border border-[#E8E8E8] hover:border-[#FF5500]"
-                            }`}
-                          >
-                            -{v}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <StyledSelect
+                      value={draftProfile.mbtiType}
+                      onChange={(v) => updateDraft("mbtiType", v)}
+                      options={mbtiOptions.map((o) => ({ value: o.type, label: o.label }))}
+                      placeholder="Clear selection"
+                    />
                   </div>
                   <div>
                     <FieldLabel>Primary Sparketype</FieldLabel>
@@ -649,9 +664,19 @@ function DashboardContent() {
               {/* Preferences */}
               <div>
                 <p className="text-[9px] font-bold text-[#FF5500] uppercase tracking-widest mb-2">Preferences</p>
+                <p className="text-[10px] text-[#888888] -mt-1 mb-3">
+                  Check &quot;Include&quot; to have a preference count toward your matches — otherwise it&apos;s
+                  ignored, even if a value is set below.
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <FieldLabel>Work Environment</FieldLabel>
+                    <div className="flex items-center justify-between mb-1">
+                      <FieldLabel>Work Environment</FieldLabel>
+                      <IncludeToggle
+                        checked={(draftProfile.optionalEnabled ?? []).includes("workEnv")}
+                        onChange={() => toggleDraftOptional("workEnv")}
+                      />
+                    </div>
                     <PillGroup
                       options={WORK_ENV_OPTIONS}
                       value={draftProfile.workEnv}
@@ -659,7 +684,13 @@ function DashboardContent() {
                     />
                   </div>
                   <div>
-                    <FieldLabel>Organizational Structure</FieldLabel>
+                    <div className="flex items-center justify-between mb-1">
+                      <FieldLabel>Organizational Structure</FieldLabel>
+                      <IncludeToggle
+                        checked={(draftProfile.optionalEnabled ?? []).includes("orgStructure")}
+                        onChange={() => toggleDraftOptional("orgStructure")}
+                      />
+                    </div>
                     <PillGroup
                       options={ORG_OPTIONS}
                       value={draftProfile.orgStructure}
@@ -669,9 +700,15 @@ function DashboardContent() {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <FieldLabel>Target Education</FieldLabel>
-                      <span className="text-xs font-bold text-[#FF5500]">
-                        {EDU_TARGET_LABELS[draftProfile.targetEduIndex]}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#FF5500]">
+                          {EDU_TARGET_LABELS[draftProfile.targetEduIndex]}
+                        </span>
+                        <IncludeToggle
+                          checked={(draftProfile.optionalEnabled ?? []).includes("targetEdu")}
+                          onChange={() => toggleDraftOptional("targetEdu")}
+                        />
+                      </div>
                     </div>
                     <input
                       type="range"
@@ -683,7 +720,13 @@ function DashboardContent() {
                     />
                   </div>
                   <div>
-                    <FieldLabel>Task Dislikes</FieldLabel>
+                    <div className="flex items-center justify-between mb-1">
+                      <FieldLabel>Task Dislikes</FieldLabel>
+                      <IncludeToggle
+                        checked={(draftProfile.optionalEnabled ?? []).includes("taskDislikes")}
+                        onChange={() => toggleDraftOptional("taskDislikes")}
+                      />
+                    </div>
                     <div className="max-h-28 overflow-y-auto space-y-1.5 rounded-lg border border-[#E8E8E8] bg-cream p-2.5">
                       {TASK_DISLIKE_OPTIONS.map((task) => (
                         <label key={task} className="flex items-center gap-2 cursor-pointer group">
@@ -756,87 +799,55 @@ function DashboardContent() {
             )}
           </section>
 
-          {/* ── RIGHT: Recent History + Compare Models, tabbed (1/3 width) ── */}
+          {/* ── RIGHT: Recent History (1/3 width) ── */}
           <div className="lg:col-span-1">
             <section className="bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-5">
               <div className="flex items-center justify-between mb-0.5 flex-wrap gap-y-2">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setRightTab("history")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      rightTab === "history"
-                        ? "bg-[#FFF3EC] text-[#FF5500]"
-                        : "text-[#888888] hover:text-[#555555] hover:bg-[#F5F5F5]"
-                    }`}
-                  >
-                    <Clock weight="bold" className="w-3.5 h-3.5" />
-                    Recent History
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRightTab("models")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      rightTab === "models"
-                        ? "bg-[#FFF3EC] text-[#FF5500]"
-                        : "text-[#888888] hover:text-[#555555] hover:bg-[#F5F5F5]"
-                    }`}
-                  >
-                    <Scales weight="bold" className="w-3.5 h-3.5" />
-                    Compare Models
-                  </button>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-[#FF5500] bg-[#FFF3EC]">
+                  <Clock weight="bold" className="w-3.5 h-3.5" />
+                  Recent History
                 </div>
-                {rightTab === "history" && (
-                  <Link href="/results-history" className="text-[11px] font-semibold text-[#FF5500] hover:underline shrink-0">
-                    View All →
-                  </Link>
-                )}
+                <Link href="/results-history" className="text-[11px] font-semibold text-[#FF5500] hover:underline shrink-0">
+                  View All →
+                </Link>
               </div>
-              <p className="text-[11px] text-[#888888] mb-4">
-                {rightTab === "history"
-                  ? "Your last few career searches."
-                  : "See how different AI models score the same personality profile."}
-              </p>
+              <p className="text-[11px] text-[#888888] mb-4">Your last few career searches.</p>
 
-              {rightTab === "history" ? (
-                !historyHydrated ? null : historyEntries.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <p className="text-xs font-semibold text-[#111111] mb-1">No searches yet</p>
-                    <p className="text-[11px] text-[#888888]">Run a search to see it show up here.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {historyEntries.slice(0, RECENT_HISTORY_LIMIT).map((entry) => {
-                      const { date, time } = formatHistoryTimestamp(entry.timestamp);
-                      const top = topRecommendedCareer(entry);
-                      const mbti = entry.payload.mbtiType
-                        ? `${entry.payload.mbtiType}${entry.payload.variant ? `-${entry.payload.variant}` : ""}`
-                        : "—";
-                      return (
-                        <Link
-                          key={entry.id}
-                          href={`/search?historyId=${entry.id}`}
-                          className="block rounded-xl border border-[#E8E8E8] px-4 py-3 hover:border-[#FF5500]/40 hover:bg-[#F5F5F5] transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-[10px] text-[#888888]">{date} · {time}</p>
-                              <p className="text-[10px] font-semibold text-[#FF5500] uppercase tracking-wide mt-0.5">
-                                {mbti} · {entry.payload.workEnv || "—"}
-                              </p>
-                              <p className="text-xs font-semibold text-[#111111] mt-1 truncate">
-                                {top ? top.title : "No recommended careers"}
-                              </p>
-                            </div>
-                            {top && <MatchBadge pct={top.matchPercent} />}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )
+              {!historyHydrated ? null : historyEntries.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <p className="text-xs font-semibold text-[#111111] mb-1">No searches yet</p>
+                  <p className="text-[11px] text-[#888888]">Run a search to see it show up here.</p>
+                </div>
               ) : (
-                <ModelComparisonPanel embedded />
+                <div className="space-y-2">
+                  {historyEntries.slice(0, RECENT_HISTORY_LIMIT).map((entry) => {
+                    const { date, time } = formatHistoryTimestamp(entry.timestamp);
+                    const top = topRecommendedCareer(entry);
+                    const mbti = entry.payload.mbtiType
+                      ? `${entry.payload.mbtiType}${entry.payload.variant ? `-${entry.payload.variant}` : ""}`
+                      : "—";
+                    return (
+                      <Link
+                        key={entry.id}
+                        href={`/search?historyId=${entry.id}`}
+                        className="block rounded-xl border border-[#E8E8E8] px-4 py-3 hover:border-[#FF5500]/40 hover:bg-[#F5F5F5] transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[10px] text-[#888888]">{date} · {time}</p>
+                            <p className="text-[10px] font-semibold text-[#FF5500] uppercase tracking-wide mt-0.5">
+                              {mbti} · {entry.payload.workEnv || "—"}
+                            </p>
+                            <p className="text-xs font-semibold text-[#111111] mt-1 truncate">
+                              {top ? top.title : "No recommended careers"}
+                            </p>
+                          </div>
+                          {top && <MatchBadge pct={top.matchPercent} />}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
             </section>
           </div>

@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { type CareerMatch } from "@/src/lib/mockData";
 import { getCategoryPalette } from "@/src/lib/categoryColors";
+import { categorizeReasons } from "@/src/lib/reasonCategorizer";
 
 // ── Analytical color tokens ────────────────────────────────────────────────────
 // Max-saturation: these are the ONLY colors that aren't monochrome (plus the
@@ -56,6 +57,69 @@ function FavouriteButton({
     >
       <StarIcon filled={isFav} className="w-4 h-4" />
     </button>
+  );
+}
+
+/**
+ * Renders one pros/cons column, split into "Personality & Assessments" vs
+ * "Preferences" sub-groups so users can see at a glance which of their inputs
+ * drove each reason (task: separate assessment and preference signal).
+ */
+function CategorizedReasonColumn({
+  title,
+  color,
+  sign,
+  items,
+  textSize = "text-sm",
+  textColor = "#333333",
+  showTitle = true,
+}: {
+  title: string;
+  color: string;
+  sign: "+" | "–";
+  items: string[];
+  textSize?: string;
+  textColor?: string;
+  showTitle?: boolean;
+}) {
+  if (items.length === 0) return null;
+  const { assessment, preference } = categorizeReasons(items);
+
+  const renderList = (list: string[]) => (
+    <ul className="space-y-2">
+      {list.map((item) => (
+        <li key={item} className={`flex items-start gap-2 ${textSize} leading-snug`} style={{ color: textColor }}>
+          <span className="font-bold shrink-0 mt-px" style={{ color }}>{sign}</span>
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <div>
+      {showTitle && (
+        <p className="text-[11px] font-bold uppercase tracking-widest mb-2.5" style={{ color }}>
+          {title}
+        </p>
+      )}
+      {assessment.length > 0 && (
+        <div className={preference.length > 0 ? "mb-3" : undefined}>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#AAAAAA] mb-1.5">
+            Personality &amp; Assessments
+          </p>
+          {renderList(assessment)}
+        </div>
+      )}
+      {preference.length > 0 && (
+        <div>
+          <p className="text-[9px] font-semibold uppercase tracking-wide text-[#AAAAAA] mb-1.5">
+            Preferences
+          </p>
+          {renderList(preference)}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -149,44 +213,10 @@ export function PrimaryCard({
           </p>
         )}
 
-        {/* Pros / Cons with max-saturation green / red */}
+        {/* Pros / Cons with max-saturation green / red, each split by assessment vs preference */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
-          {career.pros.length > 0 && (
-            <div>
-              <p
-                className="text-[11px] font-bold uppercase tracking-widest mb-2.5"
-                style={{ color: GREEN }}
-              >
-                Works in your favour
-              </p>
-              <ul className="space-y-2">
-                {career.pros.map((p) => (
-                  <li key={p} className="flex items-start gap-2 text-sm text-[#333333] leading-snug">
-                    <span className="font-bold shrink-0 mt-px" style={{ color: GREEN }}>+</span>
-                    {p}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {career.cons.length > 0 && (
-            <div>
-              <p
-                className="text-[11px] font-bold uppercase tracking-widest mb-2.5"
-                style={{ color: RED }}
-              >
-                Worth being aware of
-              </p>
-              <ul className="space-y-2">
-                {career.cons.map((c) => (
-                  <li key={c} className="flex items-start gap-2 text-sm text-[#333333] leading-snug">
-                    <span className="font-bold shrink-0 mt-px" style={{ color: RED }}>–</span>
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <CategorizedReasonColumn title="Works in your favour" color={GREEN} sign="+" items={career.pros} />
+          <CategorizedReasonColumn title="Worth being aware of" color={RED} sign="–" items={career.cons} />
         </div>
 
         {/* Stats footer */}
@@ -256,16 +286,18 @@ export function SecondaryCard({
           <p className="text-xs text-[#888888] italic leading-relaxed mb-4">{career.keyFriction}</p>
         )}
 
-        {/* Pros with green */}
+        {/* Pros, split by assessment vs preference */}
         {career.pros.length > 0 && (
-          <ul className="space-y-1.5 mb-5">
-            {career.pros.map((p) => (
-              <li key={p} className="flex items-start gap-2 text-xs text-[#333333] leading-snug">
-                <span className="font-bold shrink-0 mt-px" style={{ color: GREEN }}>+</span>
-                {p}
-              </li>
-            ))}
-          </ul>
+          <div className="mb-5">
+            <CategorizedReasonColumn
+              title="Works in your favour"
+              color={GREEN}
+              sign="+"
+              items={career.pros}
+              textSize="text-xs"
+              showTitle={false}
+            />
+          </div>
         )}
 
         {/* Stats footer */}
@@ -358,17 +390,16 @@ export function FlaggedCard({ career }: { career: CareerMatch }) {
           </p>
         )}
 
-        {/* Cons with red */}
-        {career.cons.length > 0 && (
-          <ul className="space-y-1.5">
-            {career.cons.map((c) => (
-              <li key={c} className="flex items-start gap-2 text-xs text-[#555555] leading-snug">
-                <span className="font-bold shrink-0 mt-px" style={{ color: RED }}>–</span>
-                {c}
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Cons, split by assessment vs preference */}
+        <CategorizedReasonColumn
+          title="Worth being aware of"
+          color={RED}
+          sign="–"
+          items={career.cons}
+          textSize="text-xs"
+          textColor="#555555"
+          showTitle={false}
+        />
 
         {/* Stats */}
         <div className="pt-2.5 border-t border-[#F0F0F0]">

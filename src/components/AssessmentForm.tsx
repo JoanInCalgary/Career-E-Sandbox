@@ -29,6 +29,20 @@ import {
   savePersonalityProfile,
 } from "@/src/lib/personalityProfile";
 
+/** Every assessment framework offered — all enabled by default, but each can
+ * be individually switched off so users have full sandbox freedom over what
+ * feeds into their matches. */
+export const ASSESSMENT_IDS = [
+  "mbti",
+  "spark",
+  "clifton",
+  "bigfive",
+  "ennea",
+  "disc",
+  "zodiac",
+  "astro",
+] as const;
+
 export interface AssessmentValues {
   mbtiType: string;
   variant: "A" | "T" | "";
@@ -166,7 +180,7 @@ export function BigFiveSlider({
 }
 
 function AccordionSection({
-  title, isOpen, onToggle, children, compact, helpKey,
+  title, isOpen, onToggle, children, compact, helpKey, enabled = true, onToggleEnabled,
 }: {
   title: string;
   isOpen: boolean;
@@ -174,19 +188,31 @@ function AccordionSection({
   children: React.ReactNode;
   compact?: boolean;
   helpKey?: keyof typeof ASSESSMENT_HELP;
+  enabled?: boolean;
+  onToggleEnabled?: () => void;
 }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const anyOpen = isOpen || helpOpen;
 
   return (
-    <div className={`border-b ${anyOpen ? "border-[#FF5500]/30" : "border-[#E8E8E8]"}`}>
+    <div className={`border-b ${anyOpen ? "border-[#FF5500]/30" : "border-[#E8E8E8]"} ${enabled ? "" : "opacity-60"}`}>
       <div className={`flex items-center gap-1 ${compact ? "px-6 py-4" : "px-5 py-4"} ${anyOpen ? "bg-[#F5F5F5]" : "hover:bg-[#F5F5F5]"} transition-colors`}>
+        {onToggleEnabled && (
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => { e.stopPropagation(); onToggleEnabled(); }}
+            onClick={(e) => e.stopPropagation()}
+            title={enabled ? "Included in your matches — uncheck to exclude" : "Excluded from your matches"}
+            className="w-4 h-4 accent-[#FF5500] cursor-pointer shrink-0 mr-1"
+          />
+        )}
         <button
           type="button"
           onClick={onToggle}
           className="flex-1 flex items-center justify-between text-sm font-semibold text-[#111111] text-left"
         >
-          <span>{title}</span>
+          <span>{title}{!enabled && <span className="ml-2 text-[9px] font-bold uppercase tracking-widest text-[#AAAAAA]">Excluded</span>}</span>
           <span className={isOpen ? "text-[#FF5500]" : "text-[#888888]"}>
             {isOpen ? <ChevronUp /> : <ChevronDown />}
           </span>
@@ -254,6 +280,8 @@ function CollapsibleCard({
   isOpen,
   onToggle,
   children,
+  enabled = true,
+  onToggleEnabled,
 }: {
   id: string;
   title: string;
@@ -261,13 +289,29 @@ function CollapsibleCard({
   isOpen: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  enabled?: boolean;
+  onToggleEnabled?: () => void;
 }) {
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
-    <div className="bg-cream rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden">
+    <div className={`bg-cream rounded-xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden ${enabled ? "" : "opacity-60"}`}>
       <div className="flex items-center justify-between px-5 py-4 bg-[#F5F5F5]">
-        <h3 className="text-sm font-bold text-[#111111]">{title}</h3>
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          {onToggleEnabled && (
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={onToggleEnabled}
+              title={enabled ? "Included in your matches — uncheck to exclude" : "Excluded from your matches"}
+              className="w-4 h-4 accent-[#FF5500] cursor-pointer shrink-0"
+            />
+          )}
+          <h3 className="text-sm font-bold text-[#111111]">
+            {title}
+            {!enabled && <span className="ml-2 text-[9px] font-bold uppercase tracking-widest text-[#AAAAAA]">Excluded</span>}
+          </h3>
+        </label>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -348,6 +392,11 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   void preload; // reserved for restore UX; no demographic auto-fill in MVP
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [enabledOptional, setEnabledOptional] = useState<Set<string>>(new Set());
+  // Every assessment framework starts enabled; users can freely toggle any
+  // of them off without losing their entered values (sandbox freedom).
+  const [enabledAssessments, setEnabledAssessments] = useState<Set<string>>(
+    () => new Set(ASSESSMENT_IDS)
+  );
 
   // These fields are shared with the Dashboard's editable "Your Personality
   // Profile" box via personalityProfile.ts (in-memory + Supabase). Initial
@@ -421,6 +470,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     setOrgStructure(stored.orgStructure);
     setTargetEduIndex(stored.targetEduIndex);
     setTaskDislikes(new Set(stored.taskDislikes));
+    setEnabledOptional(new Set(stored.optionalEnabled ?? []));
     setProfileHydrated(true);
   }, []);
 
@@ -443,6 +493,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
       orgStructure,
       targetEduIndex,
       taskDislikes: Array.from(taskDislikes),
+      optionalEnabled: Array.from(enabledOptional),
     });
   }, [
     profileHydrated,
@@ -462,6 +513,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     orgStructure,
     targetEduIndex,
     taskDislikes,
+    enabledOptional,
   ]);
 
   function toggleSection(id: string) {
@@ -482,6 +534,14 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
 
   function toggleOptional(id: string) {
     setEnabledOptional((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAssessment(id: string) {
+    setEnabledAssessments((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -523,6 +583,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
       gender,
       race,
       enabledOptional: Array.from(enabledOptional),
+      enabledAssessments: Array.from(enabledAssessments),
     };
   }
 
@@ -545,29 +606,8 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
           value={mbtiType}
           onChange={handleMbtiChange}
           options={mbtiOptions.map((o) => ({ value: o.type, label: o.label }))}
+          placeholder="Clear selection"
         />
-      </div>
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <FieldLabel>Variant Modifier</FieldLabel>
-          <span className="text-[9px] font-semibold text-[#888888] uppercase tracking-widest -mt-2">(optional)</span>
-        </div>
-        <div className="flex gap-2">
-          {(["A", "T"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setVariant((prev) => prev === v ? "" : v)}
-              className={`px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                variant === v
-                  ? "bg-[#FF5500] text-white border border-[#FF5500]"
-                  : "bg-cream text-[#888888] border border-[#E8E8E8] hover:border-[#FF5500] hover:text-[#FF5500]"
-              }`}
-            >
-              {v === "A" ? "Assertive (-A)" : "Turbulent (-T)"}
-            </button>
-          ))}
-        </div>
       </div>
     </>
   );
@@ -766,6 +806,8 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
                 helpKey={card.helpKey}
                 isOpen={openSections.has(card.id)}
                 onToggle={() => toggleSection(card.id)}
+                enabled={enabledAssessments.has(card.id)}
+                onToggleEnabled={() => toggleAssessment(card.id)}
               >
                 {card.content}
               </CollapsibleCard>
@@ -833,23 +875,23 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
       <div>
         {sidebarTab === "assessments" && (
           <div>
-            <AccordionSection title="Astrology" isOpen={openSections.has("astro")} onToggle={() => toggleSection("astro")} helpKey="astro" compact>
+            <AccordionSection title="Astrology" isOpen={openSections.has("astro")} onToggle={() => toggleSection("astro")} helpKey="astro" compact enabled={enabledAssessments.has("astro")} onToggleEnabled={() => toggleAssessment("astro")}>
               <div><FieldLabel>Sun Sign</FieldLabel><StyledSelect value={sunSign} onChange={setSunSign} options={SUN_SIGNS} placeholder="Select sign..." /></div>
             </AccordionSection>
-            <AccordionSection title="Big Five Model" isOpen={openSections.has("bigfive")} onToggle={() => toggleSection("bigfive")} helpKey="bigfive" compact>{bigFiveFields}</AccordionSection>
-            <AccordionSection title="Chinese Zodiac" isOpen={openSections.has("zodiac")} onToggle={() => toggleSection("zodiac")} helpKey="zodiac" compact>
+            <AccordionSection title="Big Five Model" isOpen={openSections.has("bigfive")} onToggle={() => toggleSection("bigfive")} helpKey="bigfive" compact enabled={enabledAssessments.has("bigfive")} onToggleEnabled={() => toggleAssessment("bigfive")}>{bigFiveFields}</AccordionSection>
+            <AccordionSection title="Chinese Zodiac" isOpen={openSections.has("zodiac")} onToggle={() => toggleSection("zodiac")} helpKey="zodiac" compact enabled={enabledAssessments.has("zodiac")} onToggleEnabled={() => toggleAssessment("zodiac")}>
               <div><FieldLabel>Animal</FieldLabel><StyledSelect value={zodiacAnimal} onChange={setZodiacAnimal} options={ZODIAC_ANIMALS} placeholder="Select animal..." /></div>
               <div><FieldLabel>Element</FieldLabel><StyledSelect value={zodiacElement} onChange={setZodiacElement} options={ZODIAC_ELEMENTS} placeholder="Select element..." /></div>
             </AccordionSection>
-            <AccordionSection title="CliftonStrengths" isOpen={openSections.has("clifton")} onToggle={() => toggleSection("clifton")} helpKey="clifton" compact>{cliftonFields}</AccordionSection>
-            <AccordionSection title="DiSC Assessment" isOpen={openSections.has("disc")} onToggle={() => toggleSection("disc")} helpKey="disc" compact>
+            <AccordionSection title="CliftonStrengths" isOpen={openSections.has("clifton")} onToggle={() => toggleSection("clifton")} helpKey="clifton" compact enabled={enabledAssessments.has("clifton")} onToggleEnabled={() => toggleAssessment("clifton")}>{cliftonFields}</AccordionSection>
+            <AccordionSection title="DiSC Assessment" isOpen={openSections.has("disc")} onToggle={() => toggleSection("disc")} helpKey="disc" compact enabled={enabledAssessments.has("disc")} onToggleEnabled={() => toggleAssessment("disc")}>
               <div><FieldLabel>Primary Style</FieldLabel><StyledSelect value={discStyle} onChange={setDiscStyle} options={DISC_STYLES} placeholder="Select style..." /></div>
             </AccordionSection>
-            <AccordionSection title="Enneagram" isOpen={openSections.has("ennea")} onToggle={() => toggleSection("ennea")} helpKey="ennea" compact>
+            <AccordionSection title="Enneagram" isOpen={openSections.has("ennea")} onToggle={() => toggleSection("ennea")} helpKey="ennea" compact enabled={enabledAssessments.has("ennea")} onToggleEnabled={() => toggleAssessment("ennea")}>
               <div><FieldLabel>Core Type</FieldLabel><StyledSelect value={enneagramType} onChange={setEnneagramType} options={ENNEAGRAM_OPTIONS} placeholder="Select type..." /></div>
             </AccordionSection>
-            <AccordionSection title="Myers-Briggs (MBTI)" isOpen={openSections.has("mbti")} onToggle={() => toggleSection("mbti")} helpKey="mbti" compact>{mbtiFields}</AccordionSection>
-            <AccordionSection title="Sparketype" isOpen={openSections.has("spark")} onToggle={() => toggleSection("spark")} helpKey="spark" compact>{sparkFields}</AccordionSection>
+            <AccordionSection title="Myers-Briggs (MBTI)" isOpen={openSections.has("mbti")} onToggle={() => toggleSection("mbti")} helpKey="mbti" compact enabled={enabledAssessments.has("mbti")} onToggleEnabled={() => toggleAssessment("mbti")}>{mbtiFields}</AccordionSection>
+            <AccordionSection title="Sparketype" isOpen={openSections.has("spark")} onToggle={() => toggleSection("spark")} helpKey="spark" compact enabled={enabledAssessments.has("spark")} onToggleEnabled={() => toggleAssessment("spark")}>{sparkFields}</AccordionSection>
           </div>
         )}
         {sidebarTab === "additional" && (

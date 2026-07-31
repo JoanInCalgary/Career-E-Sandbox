@@ -25,11 +25,11 @@ export interface ProviderInfo {
 }
 
 export const PROVIDER_INFO: ProviderInfo[] = [
-  { id: "claude", label: "Claude (Anthropic)", short: "Claude" },
-  { id: "openai", label: "OpenAI (GPT-4o mini)", short: "GPT-4o mini" },
-  { id: "gemini", label: "Gemini (Google AI Studio)", short: "Gemini" },
-  { id: "groq", label: "Groq Cloud", short: "Groq" },
-  { id: "openrouter", label: "OpenRouter", short: "OpenRouter" },
+  { id: "claude", label: "Claude Haiku 4.5 (Anthropic)", short: "Claude Haiku 4.5" },
+  { id: "openai", label: "GPT-4o mini (OpenAI)", short: "GPT-4o mini" },
+  { id: "gemini", label: "Gemini 2.5 Flash (Google AI Studio)", short: "Gemini 2.5 Flash" },
+  { id: "groq", label: "Llama 3.3 70B (Groq Cloud)", short: "Llama 3.3 70B (Groq)" },
+  { id: "openrouter", label: "Llama 3.3 70B (OpenRouter · SambaNova)", short: "Llama 3.3 70B (OpenRouter)" },
 ];
 
 /**
