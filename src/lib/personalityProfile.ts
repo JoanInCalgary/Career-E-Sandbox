@@ -25,6 +25,17 @@ export interface PersonalityProfile {
   orgStructure: OrgStructure;
   targetEduIndex: number;
   taskDislikes: string[];
+  /**
+   * Which optional preference fields the user has actually opted into (ids:
+   * "workEnv", "orgStructure", "targetEdu", "taskDislikes", "demoAge",
+   * "demoGender", "demoRace"). workEnv/orgStructure/targetEduIndex always
+   * hold *something* so the picker UI has a starting position, but that
+   * value should only be treated as a real preference — shown on the
+   * Dashboard, sent to the AI agent — when its id is present here. Without
+   * this, an untouched default (e.g. "Fully Remote") is indistinguishable
+   * from a value the user actually chose.
+   */
+  optionalEnabled: string[];
 }
 
 /** Empty MVP defaults — no preloaded demo personality. */
@@ -45,6 +56,7 @@ export const EMPTY_PERSONALITY_PROFILE: PersonalityProfile = {
   orgStructure: "Hierarchical",
   targetEduIndex: 0,
   taskDislikes: [],
+  optionalEnabled: [],
 };
 
 /** @deprecated Use EMPTY_PERSONALITY_PROFILE — kept as alias for older imports. */
@@ -56,6 +68,7 @@ function cloneProfile(profile: PersonalityProfile): PersonalityProfile {
     strengths: [...profile.strengths],
     bigFive: { ...profile.bigFive },
     taskDislikes: [...profile.taskDislikes],
+    optionalEnabled: [...(profile.optionalEnabled ?? [])],
   };
 }
 

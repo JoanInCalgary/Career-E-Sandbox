@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import AppNav from "@/src/components/AppNav";
 import RequireAuth from "@/src/components/RequireAuth";
+import { useAuth, type SearchUsage } from "@/src/components/AuthProvider";
 import AssessmentForm, {
   type AssessmentFormHandle,
   type AssessmentValues,
@@ -45,6 +46,7 @@ import {
   saveModelRun,
 } from "@/src/lib/modelRuns";
 import { getFavouriteIds, toggleFavourite as toggleFavouriteInStore } from "@/src/lib/favourites";
+import { getPersonalityProfile } from "@/src/lib/personalityProfile";
 
 const EMPTY_RESULT_SET: ResultSet = {
   id: "empty",
@@ -64,6 +66,7 @@ interface CareerFetchSuccess {
   confidencePercent: number;
   activeVariables: string;
   generationTimeMs?: number;
+  usage?: SearchUsage | null;
 }
 
 interface CareerFetchFailure {
@@ -114,6 +117,7 @@ async function fetchCareerResults(
       confidencePercent: data.confidencePercent ?? 80,
       activeVariables: data.activeVariables ?? "",
       generationTimeMs: typeof data.generationTimeMs === "number" ? data.generationTimeMs : undefined,
+      usage: (data.usage as SearchUsage | null | undefined) ?? null,
     };
   } catch (e) {
     console.error("[fetchCareerResults] fetch threw", e);
@@ -123,6 +127,11 @@ async function fetchCareerResults(
 
 function sortAlpha(careers: CareerMatch[]): CareerMatch[] {
   return [...careers].sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/** Highest matchPercent first — used to determine the single "Best Match" card. */
+function sortByMatch(careers: CareerMatch[]): CareerMatch[] {
+  return [...careers].sort((a, b) => b.matchPercent - a.matchPercent);
 }
 
 function StarFilledIcon({ className }: { className?: string }) {
@@ -154,8 +163,11 @@ export default function SearchPage() {
 }
 
 function SearchContent() {
+  const { user, refresh } = useAuth();
   const [preload, setPreload] = useState(false);
   const [view, setView] = useState<View>("idle");
+  const [usageNotice, setUsageNotice] = useState<{ kind: "half" | "empty"; message: string } | null>(null);
+  const [showProfilePrompt, setShowProfilePrompt] = useState(false);
 
   const [pillOpen, setPillOpen] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
@@ -171,7 +183,6 @@ function SearchContent() {
   const [favourites, setFavourites] = useState<Set<string>>(new Set());
   const [resultSet, setResultSet] = useState<ResultSet>(EMPTY_RESULT_SET);
   const [activeProvider, setActiveProvider] = useState<LLMProvider>(DEFAULT_PROVIDER);
-  const [usingMockData, setUsingMockData] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [searchLimitMessage, setSearchLimitMessage] = useState<string | null>(null);
   const [generatedByProvider, setGeneratedByProvider] = useState<LLMProvider | null>(null);
@@ -193,7 +204,6 @@ function SearchContent() {
           activeVariables: entry.activeVariables,
           careers: entry.careers,
         });
-        setUsingMockData(false);
         setGeneratedByProvider(entry.provider);
         setGenerationTimeMs(entry.generationTimeMs ?? null);
         latestPayloadRef.current = entry.payload;
@@ -211,6 +221,66 @@ function SearchContent() {
   useEffect(() => {
     setFavourites(getFavouriteIds());
   }, []);
+
+  // First-time visitors land here with an empty personality profile — pop
+  // the assessment panel open and surface a welcome prompt so they're guided
+  // straight into filling it out, instead of staring at an empty idle state.
+  useEffect(() => {
+    const stored = getPersonalityProfile();
+    const isEmpty =
+      !stored.mbtiType &&
+      !stored.primarySpark &&
+      !stored.secondarySpark &&
+      !stored.antiSpark &&
+      stored.strengths.every((s) => !s) &&
+      !stored.enneagramType &&
+      !stored.discStyle &&
+      !stored.zodiacAnimal &&
+      !stored.zodiacElement &&
+      !stored.sunSign;
+    if (isEmpty) {
+      setShowProfilePrompt(true);
+      setPillOpen(true);
+    }
+  }, []);
+
+  /** Surface a one-time banner the first time an account crosses 50% of its
+   * search allowance, and again when it hits 0 remaining. Gated in
+   * localStorage per period so it doesn't re-fire on every page load or
+   * every subsequent search within the same period. */
+  function maybeNotifyUsage(usage: SearchUsage | null | undefined) {
+    if (!usage || typeof window === "undefined") return;
+    const scope = `${usage.periodResetsAt}`;
+    if (usage.remaining <= 0) {
+      const key = `usageNotice:empty:${scope}`;
+      if (!window.localStorage.getItem(key)) {
+        window.localStorage.setItem(key, "1");
+        setUsageNotice({
+          kind: "empty",
+          message: `You've used all ${usage.limit} searches for this period. It resets ${new Date(
+            usage.periodResetsAt
+          ).toLocaleDateString()}.`,
+        });
+      }
+    } else if (usage.limit > 0 && usage.used / usage.limit >= 0.5) {
+      const key = `usageNotice:half:${scope}`;
+      if (!window.localStorage.getItem(key)) {
+        window.localStorage.setItem(key, "1");
+        setUsageNotice({
+          kind: "half",
+          message: `You've used ${usage.used} of ${usage.limit} searches this period — ${usage.remaining} remaining.`,
+        });
+      }
+    }
+  }
+
+  // Check on mount / whenever the account's usage snapshot changes (e.g.
+  // right after login) so returning users are notified even if they don't
+  // run a new search this session.
+  useEffect(() => {
+    maybeNotifyUsage(user?.searchUsage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.searchUsage?.used, user?.searchUsage?.limit, user?.searchUsage?.periodResetsAt]);
 
   function selectProvider(provider: LLMProvider) {
     setActiveProvider(provider);
@@ -235,12 +305,15 @@ function SearchContent() {
         (domainFilter === "All Domains" || c.domain === domainFilter)
     )
     .sort((a, b) => a.matchPercent - b.matchPercent)
-    .slice(0, 10);
+    .slice(0, 15);
 
-  const primaryCard = allRecommended.length > 0 ? allRecommended[0] : undefined;
+  // Primary is the highest-matchPercent recommended card, not the alphabetically-first one.
+  const primaryCard = allRecommended.length > 0 ? sortByMatch(allRecommended)[0] : undefined;
   const primaryIsFavourited = primaryCard ? favourites.has(primaryCard.id) : false;
   const favouriteCards = allRecommended.filter((c) => favourites.has(c.id));
-  const gridCards = allRecommended.slice(1).filter((c) => !favourites.has(c.id));
+  const gridCards = allRecommended
+    .filter((c) => c.id !== primaryCard?.id)
+    .filter((c) => !favourites.has(c.id));
 
   /** Stars/unstars a career, persisting the full snapshot to the shared
    * favourites store so it shows up (or disappears) on the Dashboard too. */
@@ -277,7 +350,6 @@ function SearchContent() {
       activeVariables: result.activeVariables,
       careers: result.careers,
     });
-    setUsingMockData(false);
     setGeneratedByProvider(result.provider);
     setGenerationTimeMs(result.generationTimeMs ?? null);
 
@@ -316,11 +388,12 @@ function SearchContent() {
         const outcome = await fetchCareerResults(effectivePayload, activeProvider);
         if (outcome.ok) {
           applyLiveResult(outcome, effectivePayload);
+          maybeNotifyUsage(outcome.usage);
+          void refresh();
         } else if (outcome.limitReached) {
           setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
         } else {
           setGenerateError(outcome.message ?? "Unable to generate career matches. Please try again.");
-          setUsingMockData(false);
           setGeneratedByProvider(null);
           setGenerationTimeMs(null);
         }
@@ -341,6 +414,8 @@ function SearchContent() {
         const outcome = await fetchCareerResults(effectivePayload, activeProvider);
         if (outcome.ok) {
           applyLiveResult(outcome, effectivePayload);
+          maybeNotifyUsage(outcome.usage);
+          void refresh();
           setView("results");
         } else if (outcome.limitReached) {
           setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
@@ -348,7 +423,6 @@ function SearchContent() {
           return;
         } else {
           setGenerateError(outcome.message ?? "Unable to generate career matches. Please try again.");
-          setUsingMockData(false);
           setGeneratedByProvider(null);
           setGenerationTimeMs(null);
           setView("idle");
@@ -384,6 +458,29 @@ function SearchContent() {
         <main className="w-full p-6 md:p-8 pb-28 overflow-y-auto min-w-0">
           <div className="max-w-4xl mx-auto">
 
+            {/* First-visit profile prompt */}
+            {showProfilePrompt && view === "idle" && (
+              <div className="mb-5">
+                <div className="flex items-start gap-3 bg-[#FFF5F0] border border-[#FF5500]/30 rounded-xl px-5 py-4">
+                  <SparkleIcon className="w-5 h-5 text-[#FF5500] shrink-0 mt-1" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-[#111111]">Welcome! Let&apos;s build your personality profile</p>
+                    <p className="text-xs text-[#888888] mt-0.5">
+                      We&apos;ve opened the panel below — enter results from as many or as few assessments as you
+                      like, set your preferences, then hit Generate to see your matches.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowProfilePrompt(false)}
+                    className="text-xs font-semibold text-[#888888] hover:text-[#000c] transition-colors shrink-0"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Preload banner */}
             {preload && view !== "loading" && (
               <div className="mb-5">
@@ -396,6 +493,42 @@ function SearchContent() {
                     </p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Usage threshold banner — 50% used or 0 remaining */}
+            {usageNotice && (
+              <div
+                className="mb-5 flex items-start gap-3 rounded-xl px-5 py-3 border"
+                style={
+                  usageNotice.kind === "empty"
+                    ? { backgroundColor: "#FFEEEE", borderColor: "rgba(238,0,0,0.3)" }
+                    : { backgroundColor: "#FFF8EE", borderColor: "#F0DDAA" }
+                }
+              >
+                <Warning
+                  weight="bold"
+                  className="w-4 h-4 shrink-0 mt-0.5"
+                  style={{ color: usageNotice.kind === "empty" ? "#CC0000" : "#AA8800" }}
+                />
+                <div className="flex-1">
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: usageNotice.kind === "empty" ? "#CC0000" : "#996600" }}
+                  >
+                    {usageNotice.kind === "empty" ? "Search limit reached" : "Halfway through your searches"}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: usageNotice.kind === "empty" ? "#994444" : "#997700" }}>
+                    {usageNotice.message}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUsageNotice(null)}
+                  className="text-xs font-semibold text-[#888888] hover:text-[#000c] transition-colors shrink-0"
+                >
+                  Dismiss
+                </button>
               </div>
             )}
 
@@ -413,9 +546,20 @@ function SearchContent() {
             {generateError && (
               <div className="mb-5 flex items-start gap-3 bg-[#FFEEEE] border border-[#EE0000]/30 rounded-xl px-5 py-3">
                 <Warning weight="bold" className="w-4 h-4 text-[#CC0000] shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-semibold text-[#CC0000]">Generation failed</p>
-                  <p className="text-xs text-[#994444] mt-0.5">{generateError}</p>
+                  <p className="text-xs text-[#994444] mt-0.5">
+                    {generateError} This is usually temporary (the server already retries once automatically) —
+                    give it another shot.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit()}
+                    disabled={isCalculating}
+                    className="mt-2 text-xs font-semibold text-[#CC0000] hover:underline disabled:opacity-60"
+                  >
+                    Try again →
+                  </button>
                 </div>
               </div>
             )}
@@ -448,28 +592,12 @@ function SearchContent() {
             ) : (
               /* ── Results ── */
               <>
-                {usingMockData && (
-                  <div className="mb-4 flex items-start gap-3 bg-[#FFFBEE] border border-[#FFE57A] rounded-xl px-5 py-3">
-                    <Warning weight="bold" className="w-4 h-4 text-[#AA8800] shrink-0 mt-0.5" />
-                    <p className="text-xs text-[#775500]">
-                      <span className="font-semibold">Preview mode —</span> AI provider unavailable or API key not set. Showing sample data. Add your key to{" "}
-                      <code
-                        className="bg-[#FFF3CC] px-1 rounded"
-                        style={{ fontFamily: "var(--font-mono, 'Geist Mono', monospace)" }}
-                      >
-                        .env.local
-                      </code>{" "}
-                      to enable live results.
-                    </p>
-                  </div>
-                )}
-
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
                   <div>
                     <h1 className="text-3xl md:text-4xl text-[#111111] tracking-tight leading-tight">
                       Career Path Results
                     </h1>
-                    {!usingMockData && generatedByProvider && (
+                    {generatedByProvider && (
                       <span
                         title="This result set was generated live by this AI model"
                         className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#555555] bg-[#F5F5F5] border border-[#E8E8E8] rounded-full px-3 py-1 mt-2"

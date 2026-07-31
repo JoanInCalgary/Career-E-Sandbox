@@ -9,7 +9,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   mbti: {
     description:
       "The Myers-Briggs Type Indicator maps how you perceive information and make decisions across four dichotomies: Introversion/Extraversion, Sensing/Intuition, Thinking/Feeling, and Judging/Perceiving.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://www.myersbriggs.org/my-mbti-personality-type/mbti-basics/",
     providerLabel: "Myers & Briggs Foundation",
     goodToKnow: [
       "Assertive (-A) types tend to be more calm and self-assured; Turbulent (-T) types are more self-conscious and perfection-driven.",
@@ -19,7 +19,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   spark: {
     description:
       "Sparketype identifies the work that makes you feel most alive. Your Primary drive, a Secondary complement, and an Anti-Sparketype that drains your energy.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://sparketype.com/",
     providerLabel: "Sparketype Official",
     goodToKnow: [
       "Your Primary Sparketype reflects the work you'd do even if unpaid.",
@@ -29,7 +29,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   clifton: {
     description:
       "CliftonStrengths (Gallup) identifies your top talent themes from 34 strengths. The natural patterns of thinking, feeling, and behaving you do best.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://www.gallup.com/cliftonstrengths/en/home.aspx",
     providerLabel: "Gallup CliftonStrengths",
     goodToKnow: [
       "Rank your top 5 in order — earlier strengths carry more weight in career matching.",
@@ -39,7 +39,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   bigfive: {
     description:
       "The Big Five (OCEAN) model measures personality across five continuous traits. It is the most widely validated framework in academic psychology.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://ipip.ori.org/",
     providerLabel: "IPIP (International Personality Item Pool)",
     goodToKnow: [
       "High Openness → creative, exploratory careers. Low Openness → structured, routine-oriented roles.",
@@ -52,7 +52,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   ennea: {
     description:
       "The Enneagram maps nine motivational types based on core fears, desires, and growth paths. It reveals why you do what you do, not just how.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://www.enneagraminstitute.com/",
     providerLabel: "Enneagram Institute",
     goodToKnow: [
       "Type 5 (Investigator) aligns with research-heavy, knowledge-intensive careers.",
@@ -62,8 +62,8 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   marketer: {
     description:
       "Conscious Marketer Archetypes draw from Jungian brand archetypes to reveal how you naturally communicate values and connect with audiences.",
-    providerUrl: "[insert link here]",
-    providerLabel: "Hero's Journey Archetypes",
+    providerUrl: "https://yukaichou.com/gamification-analysis/brand-archetypes-jung-mark-pearson-twelve-personas/",
+    providerLabel: "Jungian Brand Archetypes (Mark & Pearson)",
     goodToKnow: [
       "Sage archetypes excel in education, research, and advisory roles.",
       "Creator archetypes align with design, innovation, and product development paths.",
@@ -72,7 +72,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   disc: {
     description:
       "DiSC measures behavioral style across Dominance, Influence, Steadiness, and Conscientiousness. It's how you respond to workplace challenges and collaboration.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://www.discprofile.com/what-is-disc",
     providerLabel: "DiSC Profile",
     goodToKnow: [
       "Dominance (D) → leadership, entrepreneurship, high-stakes decision roles.",
@@ -82,7 +82,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   zodiac: {
     description:
       "The Chinese Zodiac assigns an animal and element based on birth year, used here as a supplementary cultural lens on personality tendencies.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://www.britannica.com/topic/Chinese-zodiac",
     providerLabel: "Chinese Zodiac Reference",
     goodToKnow: [
       "Used as a supplementary signal — weighted lower than validated psychometric frameworks.",
@@ -92,7 +92,7 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   astro: {
     description:
       "Sun sign astrology provides a broad archetypal lens based on birth date.",
-    providerUrl: "[insert link here]",
+    providerUrl: "https://www.astro.com/astrology/in_sun_e.htm",
     providerLabel: "Astro.com",
     goodToKnow: [
       "Treated as a minor modifier in the matching engine, not a primary driver.",
@@ -102,8 +102,8 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   additional: {
     description:
       "Optional inputs that enhance career path results. Enable only the fields relevant to you.",
-    providerUrl: "[insert link here]",
-    providerLabel: "Career-E-Sandbox Docs",
+    providerUrl: "https://www.onetonline.org/explore/interests/",
+    providerLabel: "O*NET Interest Profiler",
     goodToKnow: [
       "Work Environment and Organizational Structure are single-select — pick one option each.",
       "Task Dislikes are multi-select — check all that apply to filter out incompatible roles.",

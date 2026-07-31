@@ -20,8 +20,10 @@ import type { FullAssessmentPayload } from "@/src/lib/types";
 import { accountStore } from "@/src/lib/server/accountStore";
 import { getCurrentAccount } from "@/src/lib/server/currentAccount";
 
-// Allow up to 60 seconds for the LLM to respond
-export const maxDuration = 60;
+// Allow up to 120 seconds for the LLM to respond — generating 25 recommended +
+// 15 non-recommended careers is a much larger response than the original 6+4,
+// so the previous 60s ceiling left slower providers more likely to time out.
+export const maxDuration = 120;
 
 const VALID_PROVIDERS: LLMProvider[] = ["claude", "openai", "gemini", "groq", "openrouter"];
 
@@ -50,21 +52,35 @@ export async function POST(req: NextRequest) {
   // cookie) aren't tracked here — this only gates logged-in usage. Quota is
   // only consumed on a successful generation (checked here, incremented
   // after the agent call succeeds below).
-  const account = await getCurrentAccount();
-  if (account) {
-    const usage = await accountStore.getSearchUsage(account.id);
-    if (usage && usage.remaining <= 0) {
-      return NextResponse.json(
-        {
-          error: `You've used all ${usage.limit} searches for this period. It resets ${new Date(
-            usage.periodResetsAt
-          ).toLocaleDateString()}.`,
-          code: "SEARCH_LIMIT_REACHED",
-          usage,
-        },
-        { status: 429 }
-      );
+  //
+  // This lookup was previously outside the try/catch below — any failure
+  // here (Supabase misconfig, missing env vars, auth service hiccup) threw
+  // uncaught, which Next.js turns into a generic HTML 500 page instead of
+  // JSON. The client's res.json() then fails to parse it and logs an empty
+  // {} error, hiding the real cause. Wrapping it lets us surface the actual
+  // message.
+  let account: Awaited<ReturnType<typeof getCurrentAccount>>;
+  try {
+    account = await getCurrentAccount();
+    if (account) {
+      const usage = await accountStore.getSearchUsage(account.id);
+      if (usage && usage.remaining <= 0) {
+        return NextResponse.json(
+          {
+            error: `You've used all ${usage.limit} searches for this period. It resets ${new Date(
+              usage.periodResetsAt
+            ).toLocaleDateString()}.`,
+            code: "SEARCH_LIMIT_REACHED",
+            usage,
+          },
+          { status: 429 }
+        );
+      }
     }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[/api/careers] Account/usage lookup failed:", message);
+    return NextResponse.json({ error: `Account lookup failed: ${message}` }, { status: 500 });
   }
 
   try {

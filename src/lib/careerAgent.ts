@@ -43,7 +43,7 @@ function buildSystemPrompt(): string {
 
 ## Rules
 1. Return ONLY a valid JSON object — no markdown, no preamble, no trailing text.
-2. Generate exactly 6 recommended careers and 4 non-recommended careers.
+2. Generate exactly 25 recommended careers and 15 non-recommended careers. Spread the recommended careers across as many of the valid domains as make sense for this profile — do not cluster them all into one or two domains — so that filtering by any single domain still returns a meaningful set of results.
 3. Every field listed in the schema below is required (no nulls, no omissions).
 4. All career titles, salary ranges, and market statistics must be accurate, real, and current — do not hallucinate roles or figures.
 5. The "domain" field must be exactly one of: ${VALID_DOMAINS.join(", ")}.
@@ -113,56 +113,81 @@ function buildUserPrompt(payload: FullAssessmentPayload): string {
 
   const lines: string[] = ["## User Personality Profile"];
 
-  // Core frameworks
-  lines.push(
-    `\n### Myers-Briggs (MBTI)\n- Type: ${payload.mbtiType}${payload.variant ? `-${payload.variant}` : ""}`
+  // Which assessment frameworks the user has switched on. Older cached
+  // payloads (e.g. from results history saved before this field existed)
+  // won't have this array — treat that as "everything enabled" so nothing
+  // regresses for them.
+  const enabledAssessments = new Set(
+    payload.enabledAssessments && payload.enabledAssessments.length > 0
+      ? payload.enabledAssessments
+      : ["mbti", "spark", "clifton", "bigfive", "ennea", "disc", "zodiac", "astro"]
   );
 
-  if (payload.primarySpark || payload.secondarySpark || payload.antiSpark) {
+  // Core frameworks — each only included if the user both filled it in AND
+  // left it switched on, so disabled assessments never influence matching.
+  if (enabledAssessments.has("mbti") && payload.mbtiType) {
+    lines.push(
+      `\n### Myers-Briggs (MBTI)\n- Type: ${payload.mbtiType}${payload.variant ? `-${payload.variant}` : ""}`
+    );
+  }
+
+  if (
+    enabledAssessments.has("spark") &&
+    (payload.primarySpark || payload.secondarySpark || payload.antiSpark)
+  ) {
     lines.push(`\n### Sparketype`);
     if (payload.primarySpark) lines.push(`- Primary: ${payload.primarySpark}`);
     if (payload.secondarySpark) lines.push(`- Secondary: ${payload.secondarySpark}`);
     if (payload.antiSpark) lines.push(`- Anti-Sparketype: ${payload.antiSpark}`);
   }
 
-  if (filledStrengths.length > 0) {
+  if (enabledAssessments.has("clifton") && filledStrengths.length > 0) {
     lines.push(`\n### CliftonStrengths (Top ${filledStrengths.length})`);
     filledStrengths.forEach((s, i) => lines.push(`- ${i + 1}. ${s}`));
   }
 
-  const { O, C, E, A, N } = payload.bigFive;
-  lines.push(
-    `\n### Big Five Model (0–100 scale)\n- Openness: ${O}\n- Conscientiousness: ${C}\n- Extraversion: ${E}\n- Agreeableness: ${A}\n- Neuroticism: ${N}`
-  );
+  if (enabledAssessments.has("bigfive")) {
+    const { O, C, E, A, N } = payload.bigFive;
+    lines.push(
+      `\n### Big Five Model (0–100 scale)\n- Openness: ${O}\n- Conscientiousness: ${C}\n- Extraversion: ${E}\n- Agreeableness: ${A}\n- Neuroticism: ${N}`
+    );
+  }
 
-  if (payload.enneagramType) {
+  if (enabledAssessments.has("ennea") && payload.enneagramType) {
     lines.push(`\n### Enneagram\n- Type: ${payload.enneagramType}`);
   }
 
-  if (payload.discStyle) {
+  if (enabledAssessments.has("disc") && payload.discStyle) {
     lines.push(`\n### DiSC\n- Primary Style: ${payload.discStyle}`);
   }
 
-  if (payload.zodiacAnimal || payload.zodiacElement) {
+  if (enabledAssessments.has("zodiac") && (payload.zodiacAnimal || payload.zodiacElement)) {
     lines.push(`\n### Chinese Zodiac (Educational)`);
     if (payload.zodiacAnimal) lines.push(`- Animal: ${payload.zodiacAnimal}`);
     if (payload.zodiacElement) lines.push(`- Element: ${payload.zodiacElement}`);
   }
 
-  if (payload.sunSign) {
+  if (enabledAssessments.has("astro") && payload.sunSign) {
     lines.push(`\n### Astrology (Educational)\n- Sun Sign: ${payload.sunSign}`);
   }
 
   // Optional fields
   const optionals = new Set(payload.enabledOptional);
 
-  lines.push(`\n### Preferences`);
-  if (optionals.has("workEnv")) lines.push(`- Work Environment: ${payload.workEnv}`);
-  if (optionals.has("orgStructure")) lines.push(`- Org Structure: ${payload.orgStructure}`);
-  lines.push(`- Target Education Level: ${eduLabel}`);
+  const hasPreferences =
+    optionals.has("workEnv") ||
+    optionals.has("orgStructure") ||
+    optionals.has("targetEdu") ||
+    (optionals.has("taskDislikes") && filledDislikes.length > 0);
 
-  if (optionals.has("taskDislikes") && filledDislikes.length > 0) {
-    lines.push(`- Task Dislikes: ${filledDislikes.join(", ")}`);
+  if (hasPreferences) {
+    lines.push(`\n### Preferences`);
+    if (optionals.has("workEnv")) lines.push(`- Work Environment: ${payload.workEnv}`);
+    if (optionals.has("orgStructure")) lines.push(`- Org Structure: ${payload.orgStructure}`);
+    if (optionals.has("targetEdu")) lines.push(`- Target Education Level: ${eduLabel}`);
+    if (optionals.has("taskDislikes") && filledDislikes.length > 0) {
+      lines.push(`- Task Dislikes: ${filledDislikes.join(", ")}`);
+    }
   }
 
   lines.push(
@@ -187,7 +212,7 @@ async function callClaude(system: string, user: string): Promise<string> {
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 8000,
+      max_tokens: 16000,
       system,
       messages: [
         { role: "user", content: user },
@@ -219,7 +244,7 @@ async function callOpenAI(system: string, user: string): Promise<string> {
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
-      max_tokens: 8000,
+      max_tokens: 16000,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
@@ -234,7 +259,16 @@ async function callOpenAI(system: string, user: string): Promise<string> {
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  // OpenAI-compatible APIs (this one included) sometimes return HTTP 200 with
+  // no `choices` and an `error` object in the body instead (moderation
+  // refusal, content filter, etc.) — surface that instead of silently
+  // returning an empty string, which would otherwise fail JSON parsing later
+  // with a confusing "Failed to parse AI response" error.
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error(`OpenAI returned no content: ${JSON.stringify(data.error ?? data).slice(0, 300)}`);
+  }
+  return content;
 }
 
 async function callGemini(system: string, user: string): Promise<string> {
@@ -251,7 +285,14 @@ async function callGemini(system: string, user: string): Promise<string> {
         contents: [{ parts: [{ text: user }] }],
         generationConfig: {
           responseMimeType: "application/json",
-          maxOutputTokens: 8000,
+          maxOutputTokens: 16000,
+          // Gemini 2.5 Flash defaults to dynamic "thinking" — it spends an
+          // unbounded chunk of the token budget reasoning before it writes
+          // any output, which is what was driving ~160s responses for a
+          // large structured JSON task like this. Thinking adds negligible
+          // quality here (the schema is rigid and the task is extraction/
+          // formatting, not multi-step reasoning), so disable it entirely.
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     }
@@ -272,6 +313,14 @@ async function callGroq(system: string, user: string): Promise<string> {
 
   const model = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
 
+  // Groq's on-demand tier caps this org at 12000 tokens/minute (TPM), and that
+  // limit is checked against prompt tokens + max_tokens combined. The other
+  // providers request max_tokens: 16000, which alone exceeds Groq's TPM cap
+  // and 413s every call regardless of how small the actual prompt is. ~40
+  // career objects fit comfortably in ~8000 output tokens, leaving headroom
+  // for the ~1-1.5k token system+user prompt under the 12000 limit.
+  const maxTokens = Number(process.env.GROQ_MAX_TOKENS ?? 8000);
+
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -280,7 +329,7 @@ async function callGroq(system: string, user: string): Promise<string> {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 8000,
+      max_tokens: maxTokens,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
@@ -295,7 +344,11 @@ async function callGroq(system: string, user: string): Promise<string> {
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error(`Groq returned no content: ${JSON.stringify(data.error ?? data).slice(0, 300)}`);
+  }
+  return content;
 }
 
 async function callOpenRouter(system: string, user: string): Promise<string> {
@@ -303,6 +356,46 @@ async function callOpenRouter(system: string, user: string): Promise<string> {
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
 
   const model = process.env.OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct";
+
+  // Pin routing to SambaNova. Left to auto-routing, OpenRouter can land this
+  // model on much slower backends (Together/DeepInfra-class, tens of
+  // tokens/sec). Benchmarks (artificialanalysis.ai) put Groq's
+  // llama-3.3-70b-versatile at ~276-299 tok/s and SambaNova's hosting of this
+  // same model at ~283 tok/s — the closest speed match available on
+  // OpenRouter, so side-by-side model comparisons aren't skewed by
+  // infrastructure differences. (Cerebras is also on OpenRouter but runs
+  // ~1,800-2,100 tok/s — much faster, not a like-for-like comparison.)
+  // Previously pinned to `order: ["SambaNova"]` on the assumption (from
+  // artificialanalysis.ai benchmarks) that it matched Groq's ~283 tok/s.
+  // Checking OpenRouter's live endpoint list
+  // (GET /api/v1/models/meta-llama/llama-3.3-70b-instruct/endpoints) shows
+  // that assumption no longer holds: both SambaNova endpoints there cap out
+  // at max_completion_tokens: 3072, far below the max_tokens: 16000 this
+  // app requests. No SambaNova endpoint can actually serve this request —
+  // that's why disabling fallbacks produced a 404 ("No endpoints found"),
+  // and why leaving fallbacks on before that silently rerouted to whatever
+  // slower backend was left (the likely source of the 120s+ responses).
+  // Switching to `sort: "throughput"` didn't reliably fix it either — most
+  // endpoints report null throughput/latency stats, so ranking has little
+  // real signal to work with (one run took 307s).
+  //
+  // The same endpoint list has a direct Groq entry for this model
+  // (tag "groq", 32,768 max completion tokens, supports response_format) —
+  // OpenRouter can proxy straight to Groq's own infrastructure. Pinning to
+  // it is the reliable way to get OpenRouter responses close to native
+  // Groq speed. Note this means the OpenRouter and Groq entries in the
+  // model picker now largely test the same backend rather than different
+  // infrastructure — set OPENROUTER_PROVIDER to a different verified slug
+  // (see the endpoints call above for current options and their token
+  // limits) if distinct infra matters more than speed for a given run.
+  const explicitProviderOrder = process.env.OPENROUTER_PROVIDER
+    ? process.env.OPENROUTER_PROVIDER.split(",").map((p) => p.trim())
+    : ["groq"];
+
+  const providerPreferences = {
+    order: explicitProviderOrder,
+    allow_fallbacks: process.env.OPENROUTER_ALLOW_FALLBACKS !== "false",
+  };
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -313,8 +406,9 @@ async function callOpenRouter(system: string, user: string): Promise<string> {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 8000,
+      max_tokens: 16000,
       response_format: { type: "json_object" },
+      provider: providerPreferences,
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },
@@ -328,14 +422,27 @@ async function callOpenRouter(system: string, user: string): Promise<string> {
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
+  // OpenRouter proxies many different backend models. A backend hiccup,
+  // rate limit, or moderation refusal frequently surfaces as HTTP 200 with
+  // an `error` field and no `choices` rather than a non-2xx status — this
+  // was silently swallowed before (empty string -> a confusing downstream
+  // JSON parse failure). Fail loudly instead so it's clear what happened
+  // and the retry in runCareerAgent gets a chance to recover.
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error(`OpenRouter returned no content: ${JSON.stringify(data.error ?? data).slice(0, 300)}`);
+  }
+  // Surfaces which backend actually served the request (e.g. "SambaNova")
+  // so a slow response can be diagnosed instead of guessed at.
+  console.log(`[callOpenRouter] served by: ${data.provider ?? "unknown"}`);
+  return content;
 }
 
 // Response parser
 
 function extractJson(raw: string): string {
   // 1. Strip markdown fences
-  let text = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+  const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
 
   // 2. If it already starts with { we're done
   if (text.startsWith("{")) return text;
@@ -433,7 +540,38 @@ function parseResponse(
   };
 }
 
+async function callProvider(provider: LLMProvider, system: string, user: string): Promise<string> {
+  switch (provider) {
+    case "claude":
+      return callClaude(system, user);
+    case "openai":
+      return callOpenAI(system, user);
+    case "gemini":
+      return callGemini(system, user);
+    case "groq":
+      return callGroq(system, user);
+    case "openrouter":
+      return callOpenRouter(system, user);
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
+  }
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // Public entry point
+
+/**
+ * Number of attempts (including the first) for a single provider call +
+ * parse. Providers — OpenRouter especially, since it proxies many different
+ * backend models — occasionally return a transient error, a truncated
+ * response, or malformed JSON. A one-shot retry absorbs most of these
+ * without the user ever seeing a failed search fall back to sample data.
+ */
+const MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 1200;
 
 export async function runCareerAgent(
   payload: FullAssessmentPayload,
@@ -442,33 +580,28 @@ export async function runCareerAgent(
   const system = buildSystemPrompt();
   const user = buildUserPrompt(payload);
 
-  let raw: string;
+  let lastError: unknown;
 
-  switch (provider) {
-    case "claude":
-      raw = await callClaude(system, user);
-      break;
-    case "openai":
-      raw = await callOpenAI(system, user);
-      break;
-    case "gemini":
-      raw = await callGemini(system, user);
-      break;
-    case "groq":
-      raw = await callGroq(system, user);
-      break;
-    case "openrouter":
-      raw = await callOpenRouter(system, user);
-      break;
-    default:
-      throw new Error(`Unknown provider: ${provider}`);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const raw = await callProvider(provider, system, user);
+      const parsed = parseResponse(raw);
+      return {
+        provider,
+        rawText: raw,
+        ...parsed,
+      };
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[runCareerAgent] ${provider} attempt ${attempt}/${MAX_ATTEMPTS} failed:`, message);
+      if (attempt < MAX_ATTEMPTS) {
+        await wait(RETRY_DELAY_MS);
+      }
+    }
   }
 
-  const parsed = parseResponse(raw);
-
-  return {
-    provider,
-    rawText: raw,
-    ...parsed,
-  };
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`${provider} failed after ${MAX_ATTEMPTS} attempts`);
 }

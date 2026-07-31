@@ -38,3 +38,54 @@ h3, h4, h5, h6 {
   font-weight: 700;
   line-height: 1.25;
 }
+
+/* ── Range sliders (Big Five traits, Target Education level) ─────────────────
+   The browser-default track is a pale grey that nearly disappears against
+   the cream (#fdf9f8) background. Style it explicitly for visible contrast
+   in every browser, rather than relying on accent-color alone. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: #E3E3E3;
+  border: 1px solid #CBCBCB;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #FF5500;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 0 1px #FF5500;
+  margin-top: -6px;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #E3E3E3;
+  border: 1px solid #CBCBCB;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #FF5500;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 0 1px #FF5500;
+  cursor: pointer;
+}

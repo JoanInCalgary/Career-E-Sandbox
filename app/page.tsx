@@ -46,7 +46,7 @@ const HOW_IT_WORKS = [
 ];
 
 const FRAMEWORKS = [
-  { name: "Astrology",          category: "Celestial Influence", descriptor: "Sun-sign archetypes as a supplementary lens.",           index: "01" },
+  { name: "Astrology",          category: "Celestial Influence", descriptor: "Sun-sign archetypes as an astrological lens.",           index: "01" },
   { name: "Big Five Model",     category: "Trait Psychology",    descriptor: "OCEAN: the gold standard in personality science.",        index: "02" },
   { name: "Chinese Zodiac",     category: "Eastern Framework",   descriptor: "12-animal cycle with 5-element elemental modifiers.",    index: "03" },
   { name: "CliftonStrengths",   category: "Talent Profile",      descriptor: "34-theme strengths inventory from Gallup research.",     index: "04" },
@@ -59,7 +59,7 @@ const FRAMEWORKS = [
 const RESULTS_CALLOUTS = [
   { title: "Personality-first explanations",      body: "Every match explains how your specific traits connect to the role — not generic job descriptions." },
   { title: "Pros & cons that actually mean something", body: "What will feel natural for you and what might drain you — tied directly to your personality type." },
-  { title: "Real job market data",               body: "Salary ranges, growth outlook, and education requirements — secondary, but there when you need them." },
+  { title: "Real job market data",               body: "Salary ranges, growth outlook, and education requirements — informs as you explore" },
   { title: "Sandbox controls",                   body: "Adjust any metric and regenerate instantly. Explore without ever restarting from scratch." },
 ];
 
@@ -323,19 +323,19 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto text-center space-y-4">
           <p className="text-base font-bold text-white tracking-tight">Career-E-Sandbox</p>
           <p className="text-xs leading-relaxed max-w-md mx-auto text-[#666666]">
-            <span className="font-semibold text-[#AAAAAA]">Research Beta Disclaimer:</span>{" "}
-            Career-E-Sandbox is a research prototype. Results are generated algorithmically and are
-            intended for exploratory purposes only — not professional career counseling or academic
+            <span className="font-semibold text-[#AAAAAA]">Beta Disclaimer:</span>{" "}
+            Career-E-Sandbox is an education prototype. Results are generated algorithmically and are
+            intended for education purposes only — not professional career counseling or academic
             advising.
           </p>
           <div className="flex items-center justify-center gap-5">
-            <a href="#" className="text-xs text-[#666666] hover:text-white transition-colors underline underline-offset-2">
+            <Link href="/terms" className="text-xs text-[#666666] hover:text-white transition-colors underline underline-offset-2">
               Terms of Use
-            </a>
+            </Link>
             <span className="text-xs text-[#333333]">•</span>
-            <a href="#" className="text-xs text-[#666666] hover:text-white transition-colors underline underline-offset-2">
+            <Link href="/privacy" className="text-xs text-[#666666] hover:text-white transition-colors underline underline-offset-2">
               Privacy Policy
-            </a>
+            </Link>
           </div>
         </div>
       </footer>
