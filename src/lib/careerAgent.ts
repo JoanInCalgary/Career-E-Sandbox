@@ -7,9 +7,9 @@
  * Phase 3 – backend server / AI agent integration.
  */
 
-import type { FullAssessmentPayload } from "@/src/lib/types";
+import { getEnabledAssessmentIds, type FullAssessmentPayload } from "@/src/lib/types";
 import type { CareerMatch, CareerDomain } from "@/src/lib/mockData";
-import { ASSESSMENT_IDS, EDU_TARGET_LABELS } from "@/src/lib/formOptions";
+import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
 
 // Provider type 
 
@@ -116,12 +116,9 @@ function buildUserPrompt(payload: FullAssessmentPayload): string {
   // Which assessment frameworks the user has switched on. Older cached
   // payloads (e.g. from results history saved before this field existed)
   // won't have this array — treat that as "everything enabled" so nothing
-  // regresses for them.
-  const enabledAssessments = new Set(
-    payload.enabledAssessments && payload.enabledAssessments.length > 0
-      ? payload.enabledAssessments
-      : ASSESSMENT_IDS
-  );
+  // regresses for them. An explicitly empty array (user switched everything
+  // off) is respected as-is instead of falling back.
+  const enabledAssessments = getEnabledAssessmentIds(payload);
 
   // Core frameworks — each only included if the user both filled it in AND
   // left it switched on, so disabled assessments never influence matching.

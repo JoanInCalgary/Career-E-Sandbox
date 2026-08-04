@@ -47,6 +47,21 @@ export interface FullAssessmentPayload {
 }
 
 /**
+ * Resolves which assessment framework ids are enabled for a given payload.
+ * Only falls back to "everything enabled" when the field is missing
+ * entirely (`undefined`/`null` — payloads saved before this field existed).
+ * An explicitly empty array means the user deliberately switched every
+ * assessment off and must be respected as "zero enabled" — treating it the
+ * same as "field never existed" would silently re-enable everything and
+ * defeat the "at least one assessment enabled" requirement. Shared by
+ * countFilledAssessments and careerAgent.ts's buildUserPrompt so the
+ * generation gate and the prompt always agree on what's enabled.
+ */
+export function getEnabledAssessmentIds(payload: FullAssessmentPayload): Set<string> {
+  return new Set(payload.enabledAssessments != null ? payload.enabledAssessments : ASSESSMENT_IDS);
+}
+
+/**
  * Counts how many enabled assessment frameworks actually have data filled
  * in. Mirrors the "is this framework included in the prompt" logic in
  * careerAgent.ts's buildUserPrompt, so the client-side gate and the
@@ -54,11 +69,7 @@ export interface FullAssessmentPayload {
  * counts once enabled since its sliders never have an empty state.
  */
 export function countFilledAssessments(payload: FullAssessmentPayload): number {
-  const enabled = new Set(
-    payload.enabledAssessments && payload.enabledAssessments.length > 0
-      ? payload.enabledAssessments
-      : ASSESSMENT_IDS
-  );
+  const enabled = getEnabledAssessmentIds(payload);
 
   let count = 0;
   if (enabled.has("mbti") && payload.mbtiType) count++;
