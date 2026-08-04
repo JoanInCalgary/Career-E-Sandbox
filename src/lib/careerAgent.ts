@@ -9,7 +9,7 @@
 
 import type { FullAssessmentPayload } from "@/src/lib/types";
 import type { CareerMatch, CareerDomain } from "@/src/lib/mockData";
-import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
+import { ASSESSMENT_IDS, EDU_TARGET_LABELS } from "@/src/lib/formOptions";
 
 // Provider type 
 
@@ -120,7 +120,7 @@ function buildUserPrompt(payload: FullAssessmentPayload): string {
   const enabledAssessments = new Set(
     payload.enabledAssessments && payload.enabledAssessments.length > 0
       ? payload.enabledAssessments
-      : ["mbti", "spark", "clifton", "bigfive", "ennea", "disc", "zodiac", "astro"]
+      : ASSESSMENT_IDS
   );
 
   // Core frameworks — each only included if the user both filled it in AND

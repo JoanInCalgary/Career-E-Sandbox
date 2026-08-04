@@ -5,7 +5,7 @@
  * Populated on login via loadFromSupabase; cleared on sign-out.
  */
 
-import type { WorkEnv, OrgStructure } from "@/src/lib/formOptions";
+import { ASSESSMENT_IDS, type WorkEnv, type OrgStructure } from "@/src/lib/formOptions";
 import { syncPersonalityDebounced } from "@/src/lib/syncToSupabase";
 
 export interface PersonalityProfile {
@@ -36,6 +36,13 @@ export interface PersonalityProfile {
    * from a value the user actually chose.
    */
   optionalEnabled: string[];
+  /**
+   * Which assessment frameworks (mbti, spark, clifton, bigfive, ennea, disc,
+   * zodiac, astro) the user has switched on, persisted the same way as
+   * optionalEnabled so a user's toggles survive across sessions/windows
+   * instead of resetting to "everything checked" on every load.
+   */
+  enabledAssessments: string[];
 }
 
 /** Empty MVP defaults — no preloaded demo personality. */
@@ -57,6 +64,7 @@ export const EMPTY_PERSONALITY_PROFILE: PersonalityProfile = {
   targetEduIndex: 0,
   taskDislikes: [],
   optionalEnabled: [],
+  enabledAssessments: [...ASSESSMENT_IDS],
 };
 
 /** @deprecated Use EMPTY_PERSONALITY_PROFILE — kept as alias for older imports. */
@@ -69,6 +77,9 @@ function cloneProfile(profile: PersonalityProfile): PersonalityProfile {
     bigFive: { ...profile.bigFive },
     taskDislikes: [...profile.taskDislikes],
     optionalEnabled: [...(profile.optionalEnabled ?? [])],
+    // Older stored profiles (saved before this field existed) won't have it —
+    // default to "everything on" so nothing regresses for them.
+    enabledAssessments: [...(profile.enabledAssessments ?? ASSESSMENT_IDS)],
   };
 }
 

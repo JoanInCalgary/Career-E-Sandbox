@@ -5,15 +5,22 @@ import Link from "next/link";
 import { Clock, ClockCounterClockwise, ShareNetwork, Trash } from "@phosphor-icons/react";
 import AppNav from "@/src/components/AppNav";
 import RequireAuth from "@/src/components/RequireAuth";
+import { LeaderboardRow, computeLeaderboardFill } from "@/src/components/CareerCards";
 import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
 import {
   deleteHistoryEntry,
   formatDuration,
   getHistoryEntries,
   providerFullLabel,
-  topRecommendedCareer,
+  topRecommendedCareers,
   type ResultsHistoryEntry,
 } from "@/src/lib/modelRuns";
+import type { CareerMatch } from "@/src/lib/mockData";
+import { getFavouriteIds, toggleFavourite as toggleFavouriteInStore } from "@/src/lib/favourites";
+
+/** Most recent entries always shown; older entries only surface if they
+ * contain a career the user has favourited. */
+const RECENT_ENTRIES_LIMIT = 5;
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -51,11 +58,13 @@ export default function ResultsHistoryPage() {
 
 function ResultsHistoryContent() {
   const [entries, setEntries] = useState<ResultsHistoryEntry[]>([]);
+  const [favouriteIds, setFavouriteIds] = useState<Set<string>>(new Set());
   const [hydrated, setHydrated] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   useEffect(() => {
     setEntries(getHistoryEntries());
+    setFavouriteIds(getFavouriteIds());
     setHydrated(true);
   }, []);
 
@@ -64,6 +73,29 @@ function ResultsHistoryContent() {
     setEntries((prev) => prev.filter((e) => e.id !== id));
     setConfirmingId(null);
   }
+
+  /** Stars/unstars a career shown in one entry's Top 5 list, persisting to
+   * the shared favourites store (so it shows up on the Dashboard too). */
+  function toggleFavourite(careers: CareerMatch[], id: string) {
+    const career = careers.find((c) => c.id === id);
+    if (!career) return;
+    const nowFavourited = toggleFavouriteInStore(career);
+    setFavouriteIds((prev) => {
+      const next = new Set(prev);
+      if (nowFavourited) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  // Most recent 10 always show; older entries only stick around here if one
+  // of their careers was favourited (so a saved result is never orphaned
+  // from the search that produced it).
+  const recentIds = new Set(entries.slice(0, RECENT_ENTRIES_LIMIT).map((e) => e.id));
+  const visibleEntries = entries.filter(
+    (e) => recentIds.has(e.id) || e.careers.some((c) => favouriteIds.has(c.id))
+  );
+  const hasOlderFavouritedEntries = visibleEntries.length > entries.slice(0, RECENT_ENTRIES_LIMIT).length;
 
   return (
     <div className="min-h-screen bg-cream">
@@ -75,6 +107,12 @@ function ResultsHistoryContent() {
             Review your previous career trajectory calculations, including which AI model generated each one and
             how long it took.
           </p>
+          {hydrated && entries.length > 0 && (
+            <p className="text-xs text-[#888888] mt-1">
+              Showing your {Math.min(entries.length, RECENT_ENTRIES_LIMIT)} most recent searches
+              {hasOlderFavouritedEntries ? ", plus older ones with a favourited result." : "."}
+            </p>
+          )}
         </div>
 
         {!hydrated ? null : entries.length === 0 ? (
@@ -96,11 +134,26 @@ function ResultsHistoryContent() {
           </div>
         ) : (
           <div className="space-y-5">
-            {entries.map((entry) => {
+            {visibleEntries.map((entry) => {
               const { date, time } = formatTimestamp(entry.timestamp);
-              const top = topRecommendedCareer(entry);
+              const topFive = topRecommendedCareers(entry, 5);
+              const topFiveFill = computeLeaderboardFill(topFive);
               const eduLabel = EDU_TARGET_LABELS[entry.payload.targetEduIndex] ?? "—";
               const isConfirming = confirmingId === entry.id;
+              const sparkSummary =
+                entry.payload.primarySpark || entry.payload.secondarySpark || entry.payload.antiSpark
+                  ? `${entry.payload.primarySpark || "—"} · ${entry.payload.secondarySpark || "—"} · Anti: ${
+                      entry.payload.antiSpark || "—"
+                    }`
+                  : "—";
+              const cliftonSummary = entry.payload.strengths.filter(Boolean).join(", ") || "—";
+              const bigFiveSummary = entry.payload.bigFive
+                ? `O:${entry.payload.bigFive.O} C:${entry.payload.bigFive.C} E:${entry.payload.bigFive.E} A:${entry.payload.bigFive.A} N:${entry.payload.bigFive.N}`
+                : "—";
+              const zodiacSummary =
+                entry.payload.zodiacAnimal || entry.payload.zodiacElement
+                  ? `${entry.payload.zodiacAnimal || "—"} — ${entry.payload.zodiacElement || "—"}`
+                  : "—";
 
               return (
                 <div
@@ -109,41 +162,28 @@ function ResultsHistoryContent() {
                 >
                   {/* Header row */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-3 flex-wrap">
-                        <span className="text-xs font-bold text-[#888888] uppercase tracking-widest">
-                          {date} · {time}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="text-xs font-bold text-[#888888] uppercase tracking-widest">
+                        {date} · {time}
+                      </span>
+                      {topFive[0] && (
+                        <span className="px-2.5 py-1 rounded-full bg-[#FDECD8] text-[#FF5500] text-xs font-bold">
+                          {topFive[0].matchPercent}% Top Match
                         </span>
-                        {top && (
-                          <span className="px-2.5 py-1 rounded-full bg-[#FDECD8] text-[#FF5500] text-xs font-bold">
-                            {top.matchPercent}% Match
-                          </span>
-                        )}
-                        <span className="px-2.5 py-1 rounded-full bg-[#fdf9f8] border border-[#E8E8E8] text-[#555555] text-xs font-semibold">
-                          {entry.confidencePercent}% confidence
-                        </span>
-                        <span
-                          title="How long this model took to generate this result set"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5F5F5] border border-[#E8E8E8] text-[#555555] text-xs font-semibold"
-                        >
-                          <IconClock className="w-3 h-3" />
-                          {formatDuration(entry.generationTimeMs)}
-                        </span>
-                        <span className="px-2.5 py-1 rounded-full bg-[#EFF4FF] text-[#0055FF] text-xs font-semibold">
-                          {providerFullLabel(entry.provider)}
-                        </span>
-                      </div>
-                      {/* Top Match label + career title */}
-                      {top ? (
-                        <>
-                          <p className="text-[10px] font-bold text-[#FF5500] uppercase tracking-widest mb-0.5">
-                            Top Match
-                          </p>
-                          <h2 className="text-lg font-bold text-[#111111]">{top.title}</h2>
-                        </>
-                      ) : (
-                        <p className="text-sm text-[#888888]">No recommended careers in this result set.</p>
                       )}
+                      <span className="px-2.5 py-1 rounded-full bg-[#fdf9f8] border border-[#E8E8E8] text-[#555555] text-xs font-semibold">
+                        {entry.confidencePercent}% confidence
+                      </span>
+                      <span
+                        title="How long this model took to generate this result set"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5F5F5] border border-[#E8E8E8] text-[#555555] text-xs font-semibold"
+                      >
+                        <IconClock className="w-3 h-3" />
+                        {formatDuration(entry.generationTimeMs)}
+                      </span>
+                      <span className="px-2.5 py-1 rounded-full bg-[#EFF4FF] text-[#0055FF] text-xs font-semibold">
+                        {providerFullLabel(entry.provider)}
+                      </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {isConfirming ? (
@@ -192,48 +232,75 @@ function ResultsHistoryContent() {
                     </div>
                   </div>
 
-                  {/* Inputs grid */}
-                  <div className="border-t border-[#E8E8E8] pt-4">
-                    <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-3">Your Inputs</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-                      <InputChip
-                        label="MBTI"
-                        value={
-                          entry.payload.mbtiType
-                            ? `${entry.payload.mbtiType}${entry.payload.variant ? `-${entry.payload.variant}` : ""}`
-                            : "—"
-                        }
-                      />
-                      <InputChip label="Work Environment" value={entry.payload.workEnv || "—"} />
-                      <InputChip label="Organization" value={entry.payload.orgStructure || "—"} />
-                      <InputChip label="Education Target" value={eduLabel} />
-                      <InputChip label="Enneagram" value={entry.payload.enneagramType || "—"} />
-                      <InputChip label="DiSC" value={entry.payload.discStyle || "—"} />
-                      {(entry.payload.primarySpark || entry.payload.secondarySpark || entry.payload.antiSpark) && (
-                        <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-1">Sparketype</p>
-                          <p className="text-sm text-[#111111]">
-                            Primary: <span className="font-semibold">{entry.payload.primarySpark || "—"}</span>
-                            {" · "}Secondary: <span className="font-semibold">{entry.payload.secondarySpark || "—"}</span>
-                            {" · "}Anti: <span className="font-semibold">{entry.payload.antiSpark || "—"}</span>
-                          </p>
-                        </div>
-                      )}
-                      {entry.payload.taskDislikes.length > 0 && (
-                        <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-1">Task Dislikes</p>
-                          <p className="text-sm text-[#111111]">{entry.payload.taskDislikes.join(", ")}</p>
-                        </div>
-                      )}
-                      {entry.activeVariables && (
-                        <div className="col-span-2 sm:col-span-3">
-                          <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-1">
-                            What {providerFullLabel(entry.provider)} weighted most
-                          </p>
-                          <p className="text-sm text-[#111111]">{entry.activeVariables}</p>
-                        </div>
-                      )}
+                  {/* Top 5 recommended careers from this run */}
+                  <div className="border-t border-[#E8E8E8] pt-4 mb-4">
+                    <p className="text-[10px] font-bold text-[#FF5500] uppercase tracking-widest mb-3">
+                      Top 5 Matches
+                    </p>
+                    {topFive.length === 0 ? (
+                      <p className="text-sm text-[#888888]">No recommended careers in this result set.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {topFive.map((c, i) => (
+                          <LeaderboardRow
+                            key={c.id}
+                            career={c}
+                            rank={i + 1}
+                            fillPercent={topFiveFill.get(c.id) ?? 0}
+                            favourites={favouriteIds}
+                            onToggleFavourite={(id) => toggleFavourite(entry.careers, id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Inputs — assessments and preferences kept in separate groups */}
+                  <div className="border-t border-[#E8E8E8] pt-4 space-y-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-[#FF5500] uppercase tracking-widest mb-3">Assessments</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+                        <InputChip
+                          label="MBTI"
+                          value={
+                            entry.payload.mbtiType
+                              ? `${entry.payload.mbtiType}${entry.payload.variant ? `-${entry.payload.variant}` : ""}`
+                              : "—"
+                          }
+                        />
+                        <InputChip label="Sparketype" value={sparkSummary} />
+                        <InputChip label="Enneagram" value={entry.payload.enneagramType || "—"} />
+                        <InputChip label="DiSC" value={entry.payload.discStyle || "—"} />
+                        <InputChip label="Big Five" value={bigFiveSummary} />
+                        <InputChip label="CliftonStrengths" value={cliftonSummary} />
+                        <InputChip label="Chinese Zodiac" value={zodiacSummary} />
+                        <InputChip label="Astrology" value={entry.payload.sunSign || "—"} />
+                      </div>
                     </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-3">Preferences</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                        <InputChip label="Work Environment" value={entry.payload.workEnv || "—"} />
+                        <InputChip label="Organization" value={entry.payload.orgStructure || "—"} />
+                        <InputChip label="Education Target" value={eduLabel} />
+                        {entry.payload.taskDislikes.length > 0 && (
+                          <div className="col-span-2 sm:col-span-3">
+                            <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-1">Task Dislikes</p>
+                            <p className="text-sm text-[#111111]">{entry.payload.taskDislikes.join(", ")}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {entry.activeVariables && (
+                      <div>
+                        <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-1">
+                          What {providerFullLabel(entry.provider)} weighted most
+                        </p>
+                        <p className="text-sm text-[#111111]">{entry.activeVariables}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

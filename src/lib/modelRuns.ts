@@ -188,7 +188,16 @@ export function clearHistoryEntries(): void {
 
 /** The top-scoring recommended career in a given entry, if any. */
 export function topRecommendedCareer(entry: Pick<ResultsHistoryEntry, "careers">): CareerMatch | undefined {
+  return topRecommendedCareers(entry, 1)[0];
+}
+
+/** The top `limit` recommended careers in a given entry, ranked by best fit. */
+export function topRecommendedCareers(
+  entry: Pick<ResultsHistoryEntry, "careers">,
+  limit = 5
+): CareerMatch[] {
   return [...entry.careers]
     .filter((c) => c.status === "recommended")
-    .sort((a, b) => b.matchPercent - a.matchPercent)[0];
+    .sort((a, b) => b.matchPercent - a.matchPercent)
+    .slice(0, limit);
 }

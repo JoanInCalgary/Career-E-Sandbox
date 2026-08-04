@@ -14,8 +14,8 @@ import {
   FavouriteCard,
   IconCheckCircle,
   IconXCircle,
-  PrimaryCard,
-  SecondaryCard,
+  LeaderboardRow,
+  computeLeaderboardFill,
 } from "@/src/components/CareerCards";
 import {
   CaretDown,
@@ -27,6 +27,7 @@ import {
   ShareNetwork,
   Sparkle,
   Star,
+  Stop,
   User,
   Warning,
 } from "@phosphor-icons/react";
@@ -37,6 +38,7 @@ import {
   type ResultSet,
 } from "@/src/lib/mockData";
 import type { LLMProvider } from "@/src/lib/careerAgent";
+import { hasMinimumAssessments } from "@/src/lib/types";
 import {
   UI_PROVIDER_INFO,
   formatDuration,
@@ -56,8 +58,15 @@ const EMPTY_RESULT_SET: ResultSet = {
   careers: [],
 };
 
+// Groq is the fastest of the enabled providers (see careerAgent.ts / .env.local
+// notes), so it's the default rather than Gemini — helps keep typical search
+// times down without the user having to know to switch models.
 const DEFAULT_PROVIDER: LLMProvider =
-  (process.env.NEXT_PUBLIC_DEFAULT_PROVIDER as LLMProvider | undefined) ?? "gemini";
+  (process.env.NEXT_PUBLIC_DEFAULT_PROVIDER as LLMProvider | undefined) ?? "groq";
+
+/** Recommended cards are capped to this many, ranked by best fit, even if the
+ * provider ever returns more than the 25 the prompt asks for. */
+const MAX_RECOMMENDED_SHOWN = 25;
 
 interface CareerFetchSuccess {
   ok: true;
@@ -73,6 +82,8 @@ interface CareerFetchFailure {
   ok: false;
   /** True when the account's per-period search allowance is exhausted (HTTP 429). */
   limitReached?: boolean;
+  /** True when the request was cancelled via the Stop button. */
+  aborted?: boolean;
   message?: string;
 }
 
@@ -81,13 +92,15 @@ type CareerFetchOutcome = CareerFetchSuccess | CareerFetchFailure;
 /** Call the /api/careers route. */
 async function fetchCareerResults(
   payload: FullAssessmentPayload,
-  provider: LLMProvider
+  provider: LLMProvider,
+  signal?: AbortSignal
 ): Promise<CareerFetchOutcome> {
   try {
     const res = await fetch("/api/careers", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ payload, provider }),
+      signal,
     });
 
     if (!res.ok) {
@@ -120,16 +133,15 @@ async function fetchCareerResults(
       usage: (data.usage as SearchUsage | null | undefined) ?? null,
     };
   } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, aborted: true };
+    }
     console.error("[fetchCareerResults] fetch threw", e);
     return { ok: false, message: "Network error while generating careers." };
   }
 }
 
-function sortAlpha(careers: CareerMatch[]): CareerMatch[] {
-  return [...careers].sort((a, b) => a.title.localeCompare(b.title));
-}
-
-/** Highest matchPercent first — used to determine the single "Best Match" card. */
+/** Highest matchPercent first — used to rank every recommended card by best fit. */
 function sortByMatch(careers: CareerMatch[]): CareerMatch[] {
   return [...careers].sort((a, b) => b.matchPercent - a.matchPercent);
 }
@@ -148,6 +160,10 @@ function CheckIcon({ className = "w-4 h-4" }: { className?: string }) {
 
 function SparkleIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
   return <Sparkle weight="bold" className={className} />;
+}
+
+function StopIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return <Stop weight="fill" className={className} />;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -187,9 +203,20 @@ function SearchContent() {
   const [searchLimitMessage, setSearchLimitMessage] = useState<string | null>(null);
   const [generatedByProvider, setGeneratedByProvider] = useState<LLMProvider | null>(null);
   const [generationTimeMs, setGenerationTimeMs] = useState<number | null>(null);
+  const [slowNotice, setSlowNotice] = useState(false);
   const latestPayloadRef = useRef<FullAssessmentPayload | null>(null);
   const isCalculatingRef = useRef(false);
   const formRef = useRef<AssessmentFormHandle>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cancel any in-flight request and pending "slow" timer if the page unmounts.
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -290,13 +317,15 @@ function SearchContent() {
   const activeProviderLabel = providerShortLabel(activeProvider);
 
   // ── Derived data ──
-  const allRecommended = sortAlpha(
+  // Ranked by best fit (highest matchPercent first), then capped so only the
+  // top 25 job titles ever show up, even if a provider over-generates.
+  const allRecommended = sortByMatch(
     resultSet.careers.filter(
       (c) =>
         c.status === "recommended" &&
         (domainFilter === "All Domains" || c.domain === domainFilter)
     )
-  );
+  ).slice(0, MAX_RECOMMENDED_SHOWN);
 
   const flagged = resultSet.careers
     .filter(
@@ -307,13 +336,11 @@ function SearchContent() {
     .sort((a, b) => a.matchPercent - b.matchPercent)
     .slice(0, 15);
 
-  // Primary is the highest-matchPercent recommended card, not the alphabetically-first one.
-  const primaryCard = allRecommended.length > 0 ? sortByMatch(allRecommended)[0] : undefined;
-  const primaryIsFavourited = primaryCard ? favourites.has(primaryCard.id) : false;
   const favouriteCards = allRecommended.filter((c) => favourites.has(c.id));
-  const gridCards = allRecommended
-    .filter((c) => c.id !== primaryCard?.id)
-    .filter((c) => !favourites.has(c.id));
+  // Everything else, still ranked by best fit — rendered as leaderboard rows
+  // so the ranking and relative match strength are easy to compare at a glance.
+  const gridCards = allRecommended.filter((c) => !favourites.has(c.id));
+  const leaderboardFill = computeLeaderboardFill(gridCards);
 
   /** Stars/unstars a career, persisting the full snapshot to the shared
    * favourites store so it shows up (or disappears) on the Dashboard too. */
@@ -374,66 +401,75 @@ function SearchContent() {
     });
   }
 
+  /** Cancels an in-flight generation request (Stop button). */
+  function stopGeneration() {
+    abortControllerRef.current?.abort();
+  }
+
   async function handleSubmit(payload?: FullAssessmentPayload) {
+    if (isCalculatingRef.current) return;
+
     const effectivePayload = payload ?? latestPayloadRef.current;
+    const wasResults = view === "results";
 
-    if (view === "results") {
-      if (isCalculatingRef.current) return;
-      isCalculatingRef.current = true;
-      setIsCalculating(true);
-      setSearchLimitMessage(null);
-      setGenerateError(null);
+    isCalculatingRef.current = true;
+    setIsCalculating(true);
+    setSearchLimitMessage(null);
+    setGenerateError(null);
+    setSlowNotice(false);
+    if (!wasResults) setView("loading");
 
-      if (effectivePayload) {
-        const outcome = await fetchCareerResults(effectivePayload, activeProvider);
-        if (outcome.ok) {
-          applyLiveResult(outcome, effectivePayload);
-          maybeNotifyUsage(outcome.usage);
-          void refresh();
-        } else if (outcome.limitReached) {
-          setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
-        } else {
-          setGenerateError(outcome.message ?? "Unable to generate career matches. Please try again.");
-          setGeneratedByProvider(null);
-          setGenerationTimeMs(null);
-        }
-      } else {
-        setGenerateError("Fill in your assessment before generating results.");
-      }
+    function finish() {
+      isCalculatingRef.current = false;
+      setIsCalculating(false);
+      if (!wasResults) setView((v) => (v === "loading" ? "idle" : v));
+    }
 
+    if (!effectivePayload) {
+      setGenerateError("Fill in your assessment before generating results.");
+      finish();
+      return;
+    }
+
+    if (!hasMinimumAssessments(effectivePayload)) {
+      setGenerateError("Add at least one personality assessment before generating results.");
+      finish();
+      return;
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    // Surface a "still working" notice if generation runs past 10s, so a slow
+    // provider doesn't read as a hang.
+    slowTimerRef.current = setTimeout(() => setSlowNotice(true), 10000);
+
+    const outcome = await fetchCareerResults(effectivePayload, activeProvider, controller.signal);
+
+    if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+    slowTimerRef.current = null;
+    setSlowNotice(false);
+    abortControllerRef.current = null;
+
+    if (outcome.ok) {
+      applyLiveResult(outcome, effectivePayload);
+      maybeNotifyUsage(outcome.usage);
+      void refresh();
+      setView("results");
+    } else if (outcome.aborted) {
+      // Cancelled via the Stop button — return quietly, no error banner.
+    } else if (outcome.limitReached) {
+      setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
+    } else {
+      setGenerateError(outcome.message ?? "Unable to generate career matches. Please try again.");
+      setGeneratedByProvider(null);
+      setGenerationTimeMs(null);
+    }
+
+    if (wasResults) {
       setActiveTab("recommended");
       setDomainFilter("All Domains");
-      setIsCalculating(false);
-      isCalculatingRef.current = false;
-    } else {
-      setView("loading");
-      setSearchLimitMessage(null);
-      setGenerateError(null);
-
-      if (effectivePayload) {
-        const outcome = await fetchCareerResults(effectivePayload, activeProvider);
-        if (outcome.ok) {
-          applyLiveResult(outcome, effectivePayload);
-          maybeNotifyUsage(outcome.usage);
-          void refresh();
-          setView("results");
-        } else if (outcome.limitReached) {
-          setSearchLimitMessage(outcome.message ?? "You've reached your search limit for this period.");
-          setView("idle");
-          return;
-        } else {
-          setGenerateError(outcome.message ?? "Unable to generate career matches. Please try again.");
-          setGeneratedByProvider(null);
-          setGenerationTimeMs(null);
-          setView("idle");
-          return;
-        }
-      } else {
-        setGenerateError("Fill in your assessment before generating results.");
-        setView("idle");
-        return;
-      }
     }
+    finish();
   }
 
   function handleValuesChange(next: AssessmentValues) {
@@ -588,6 +624,19 @@ function SearchContent() {
                 <div className="w-64 h-1.5 bg-[#F0F0F0] rounded-full overflow-hidden mt-8">
                   <div className="h-full rounded-full animate-pulse w-full" style={{ backgroundColor: "#FF5500" }} />
                 </div>
+                {slowNotice && (
+                  <p className="text-xs font-semibold text-[#FF5500] mt-5">
+                    Still working — results are taking a little longer than usual…
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={stopGeneration}
+                  className="inline-flex items-center gap-2 border border-[#E8E8E8] bg-cream text-[#555555] font-semibold text-sm px-4 py-2 rounded-lg mt-6 hover:border-[#EE0000] hover:text-[#EE0000] transition-colors"
+                >
+                  <StopIcon className="w-3.5 h-3.5" />
+                  Stop
+                </button>
               </div>
             ) : (
               /* ── Results ── */
@@ -679,15 +728,29 @@ function SearchContent() {
                   )}
                 </div>
 
+                {isCalculating && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                    {slowNotice && (
+                      <p className="text-xs font-semibold text-[#FF5500]">
+                        Still working — results are taking a little longer than usual…
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={stopGeneration}
+                      className="inline-flex items-center gap-2 border border-[#E8E8E8] bg-cream text-[#555555] font-semibold text-xs px-3 py-1.5 rounded-lg hover:border-[#EE0000] hover:text-[#EE0000] transition-colors shrink-0 sm:ml-auto"
+                    >
+                      <StopIcon className="w-3 h-3" />
+                      Stop
+                    </button>
+                  </div>
+                )}
                 <div className="transition-opacity duration-300" style={{ opacity: isCalculating ? 0 : 1 }}>
                   {isCalculating ? (
-                    <div className="space-y-4">
-                      <div className="bg-[#F5F5F5] rounded-xl border border-[#E8E8E8] h-64 animate-pulse" />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {[1, 2, 3, 4].map((i) => (
-                          <div key={i} className="bg-[#F5F5F5] rounded-xl border border-[#E8E8E8] h-44 animate-pulse" />
-                        ))}
-                      </div>
+                    <div className="space-y-2">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                        <div key={i} className="bg-[#F5F5F5] rounded-xl border border-[#E8E8E8] h-14 animate-pulse" />
+                      ))}
                     </div>
                   ) : activeTab === "recommended" ? (
                     allRecommended.length === 0 ? (
@@ -712,25 +775,22 @@ function SearchContent() {
                           </div>
                         )}
 
-                        {primaryCard && !primaryIsFavourited && (
-                          <div>
-                            <h2 className="text-2xl text-[#111111] mb-1">Best Match</h2>
-                            <p className="text-sm text-[#888888] mb-4">
-                              Most aligned with your personality and preferences.
-                            </p>
-                            <PrimaryCard career={primaryCard} favourites={favourites} onToggleFavourite={toggleFavourite} />
-                          </div>
-                        )}
-
                         {gridCards.length > 0 && (
                           <div>
-                            <h3 className="text-lg font-bold text-[#111111] mb-1">Other Considerable Options</h3>
+                            <h2 className="text-2xl text-[#111111] mb-1">Recommended Career Paths</h2>
                             <p className="text-sm text-[#888888] mb-4">
-                              Additional career paths worth exploring.
+                              Ranked by best fit — read top to bottom, or compare bar length at a glance.
                             </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {gridCards.map((c) => (
-                                <SecondaryCard key={c.id} career={c} favourites={favourites} onToggleFavourite={toggleFavourite} />
+                            <div className="space-y-2">
+                              {gridCards.map((c, i) => (
+                                <LeaderboardRow
+                                  key={c.id}
+                                  career={c}
+                                  rank={i + 1}
+                                  fillPercent={leaderboardFill.get(c.id) ?? 0}
+                                  favourites={favourites}
+                                  onToggleFavourite={toggleFavourite}
+                                />
                               ))}
                             </div>
                           </div>
@@ -912,24 +972,28 @@ function SearchContent() {
               {/* Divider */}
               <div className="w-px bg-[#E8E8E8] self-stretch" />
 
-              {/* ── Generate button — BRIGHT ORANGE ── */}
+              {/* ── Generate button — BRIGHT ORANGE. Becomes a Stop button while calculating. ── */}
               <button
                 type="button"
-                disabled={isCalculating}
                 onClick={() => {
+                  if (isCalculating) {
+                    stopGeneration();
+                    return;
+                  }
                   const payload = formRef.current?.buildPayload() ?? latestPayloadRef.current ?? undefined;
                   if (payload) handleSubmitWithValues(payload);
                   else handleSubmit();
                   setPillOpen(false);
                   setModelMenuOpen(false);
                 }}
-                className="flex items-center gap-2 px-6 rounded-r-full text-white text-sm font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
-                style={{ backgroundColor: isCalculating ? "#FF5500" : "#FF5500" }}
+                title={isCalculating ? "Stop generating" : undefined}
+                className="flex items-center gap-2 px-6 rounded-r-full text-white text-sm font-bold transition-colors shrink-0"
+                style={{ backgroundColor: isCalculating ? "#CC3300" : "#FF5500" }}
               >
                 {isCalculating ? (
                   <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span className="hidden sm:inline">Calculating…</span>
+                    <StopIcon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Stop</span>
                   </>
                 ) : (
                   <>

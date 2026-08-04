@@ -6,6 +6,7 @@ import { mbtiOptions } from "@/src/lib/mockData";
 import { ASSESSMENT_HELP } from "@/src/lib/assessmentHelp";
 import {
   AGE_RANGES,
+  ASSESSMENT_IDS,
   CLIFTON_STRENGTHS,
   DISC_STYLES,
   EDU_TARGET_LABELS,
@@ -28,20 +29,6 @@ import {
   getPersonalityProfile,
   savePersonalityProfile,
 } from "@/src/lib/personalityProfile";
-
-/** Every assessment framework offered — all enabled by default, but each can
- * be individually switched off so users have full sandbox freedom over what
- * feeds into their matches. */
-export const ASSESSMENT_IDS = [
-  "mbti",
-  "spark",
-  "clifton",
-  "bigfive",
-  "ennea",
-  "disc",
-  "zodiac",
-  "astro",
-] as const;
 
 export interface AssessmentValues {
   mbtiType: string;
@@ -392,10 +379,13 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   void preload; // reserved for restore UX; no demographic auto-fill in MVP
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [enabledOptional, setEnabledOptional] = useState<Set<string>>(new Set());
-  // Every assessment framework starts enabled; users can freely toggle any
-  // of them off without losing their entered values (sandbox freedom).
+  // Every assessment framework starts enabled (sandbox freedom lets users
+  // freely toggle any off without losing their entered values), but this
+  // default is only for the very first render — the hydrate effect below
+  // restores whatever the user last saved, same as optionalEnabled, so
+  // toggles persist across sessions/windows instead of resetting.
   const [enabledAssessments, setEnabledAssessments] = useState<Set<string>>(
-    () => new Set(ASSESSMENT_IDS)
+    () => new Set(DEFAULT_PERSONALITY_PROFILE.enabledAssessments)
   );
 
   // These fields are shared with the Dashboard's editable "Your Personality
@@ -471,6 +461,10 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     setTargetEduIndex(stored.targetEduIndex);
     setTaskDislikes(new Set(stored.taskDislikes));
     setEnabledOptional(new Set(stored.optionalEnabled ?? []));
+    // Restore which assessment frameworks were toggled on/off last time,
+    // same as optionalEnabled above — falls back to "everything on" for
+    // profiles saved before this was tracked.
+    setEnabledAssessments(new Set(stored.enabledAssessments ?? ASSESSMENT_IDS));
     setProfileHydrated(true);
   }, []);
 
@@ -494,6 +488,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
       targetEduIndex,
       taskDislikes: Array.from(taskDislikes),
       optionalEnabled: Array.from(enabledOptional),
+      enabledAssessments: Array.from(enabledAssessments),
     });
   }, [
     profileHydrated,
@@ -514,6 +509,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     targetEduIndex,
     taskDislikes,
     enabledOptional,
+    enabledAssessments,
   ]);
 
   function toggleSection(id: string) {
