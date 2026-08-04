@@ -20,7 +20,7 @@ import {
   Users,
 } from "@phosphor-icons/react";
 import type { CareerMatch } from "@/src/lib/mockData";
-import type { FullAssessmentPayload } from "@/src/lib/types";
+import { getEnabledAssessmentIds, type FullAssessmentPayload } from "@/src/lib/types";
 import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
 import { getHistoryEntries } from "@/src/lib/modelRuns";
 import { getFavourites } from "@/src/lib/favourites";
@@ -240,26 +240,35 @@ export default function CareerDetailPage() {
 
               {payload ? (
                 <div className="space-y-5">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[
-                      { label: "MBTI", value: payload.mbtiType ? `${payload.mbtiType}${payload.variant ? `-${payload.variant}` : ""}` : "—" },
-                      { label: "Primary Sparketype", value: payload.primarySpark || "—" },
-                      { label: "Enneagram", value: payload.enneagramType || "—" },
-                      { label: "DiSC", value: payload.discStyle || "—" },
-                      { label: "Sun Sign", value: payload.sunSign || "—" },
-                      { label: "Chinese Zodiac", value: [payload.zodiacAnimal, payload.zodiacElement].filter(Boolean).join(" / ") || "—" },
+                  {(() => {
+                    const enabledAssessments = getEnabledAssessmentIds(payload);
+                    const assessmentChips = [
+                      { id: "mbti", label: "MBTI", value: payload.mbtiType ? `${payload.mbtiType}${payload.variant ? `-${payload.variant}` : ""}` : "—" },
+                      { id: "spark", label: "Primary Sparketype", value: payload.primarySpark || "—" },
+                      { id: "ennea", label: "Enneagram", value: payload.enneagramType || "—" },
+                      { id: "disc", label: "DiSC", value: payload.discStyle || "—" },
+                      { id: "astro", label: "Sun Sign", value: payload.sunSign || "—" },
+                      { id: "zodiac", label: "Chinese Zodiac", value: [payload.zodiacAnimal, payload.zodiacElement].filter(Boolean).join(" / ") || "—" },
                       {
+                        id: "bigfive",
                         label: "Big Five",
                         value: `O:${payload.bigFive.O} C:${payload.bigFive.C} E:${payload.bigFive.E} A:${payload.bigFive.A} N:${payload.bigFive.N}`,
                       },
-                      { label: "CliftonStrengths", value: payload.strengths.filter(Boolean).join(", ") || "—" },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-3 py-2">
-                        <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
-                        <p className="text-[11px] font-semibold text-[#111111] leading-snug">{value}</p>
+                      { id: "clifton", label: "CliftonStrengths", value: payload.strengths.filter(Boolean).join(", ") || "—" },
+                    ].filter((chip) => enabledAssessments.has(chip.id));
+
+                    if (assessmentChips.length === 0) return null;
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {assessmentChips.map(({ label, value }) => (
+                          <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-3 py-2">
+                            <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
+                            <p className="text-[11px] font-semibold text-[#111111] leading-snug">{value}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
 
                   {(() => {
                     const optionals = new Set(payload.enabledOptional ?? []);

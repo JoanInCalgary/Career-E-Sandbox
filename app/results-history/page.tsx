@@ -7,6 +7,7 @@ import AppNav from "@/src/components/AppNav";
 import RequireAuth from "@/src/components/RequireAuth";
 import { LeaderboardRow, computeLeaderboardFill } from "@/src/components/CareerCards";
 import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
+import { getEnabledAssessmentIds } from "@/src/lib/types";
 import {
   deleteHistoryEntry,
   formatDuration,
@@ -140,6 +141,11 @@ function ResultsHistoryContent() {
               const topFiveFill = computeLeaderboardFill(topFive);
               const eduLabel = EDU_TARGET_LABELS[entry.payload.targetEduIndex] ?? "—";
               const isConfirming = confirmingId === entry.id;
+              // Only show assessment frameworks / preferences the user had
+              // actually switched on for this search — not every field the
+              // payload happens to carry a value for.
+              const enabledAssessments = getEnabledAssessmentIds(entry.payload);
+              const enabledOptional = new Set(entry.payload.enabledOptional ?? []);
               const sparkSummary =
                 entry.payload.primarySpark || entry.payload.secondarySpark || entry.payload.antiSpark
                   ? `${entry.payload.primarySpark || "—"} · ${entry.payload.secondarySpark || "—"} · Anti: ${
@@ -255,43 +261,52 @@ function ResultsHistoryContent() {
                     )}
                   </div>
 
-                  {/* Inputs — assessments and preferences kept in separate groups */}
+                  {/* Inputs — assessments and preferences kept in separate groups.
+                      Only the frameworks/preferences the user had switched on for
+                      this search are shown; anything toggled off is omitted rather
+                      than shown as "—". */}
                   <div className="border-t border-[#E8E8E8] pt-4 space-y-4">
-                    <div>
-                      <p className="text-[10px] font-bold text-[#FF5500] uppercase tracking-widest mb-3">Assessments</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
-                        <InputChip
-                          label="MBTI"
-                          value={
-                            entry.payload.mbtiType
-                              ? `${entry.payload.mbtiType}${entry.payload.variant ? `-${entry.payload.variant}` : ""}`
-                              : "—"
-                          }
-                        />
-                        <InputChip label="Sparketype" value={sparkSummary} />
-                        <InputChip label="Enneagram" value={entry.payload.enneagramType || "—"} />
-                        <InputChip label="DiSC" value={entry.payload.discStyle || "—"} />
-                        <InputChip label="Big Five" value={bigFiveSummary} />
-                        <InputChip label="CliftonStrengths" value={cliftonSummary} />
-                        <InputChip label="Chinese Zodiac" value={zodiacSummary} />
-                        <InputChip label="Astrology" value={entry.payload.sunSign || "—"} />
+                    {enabledAssessments.size > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-[#FF5500] uppercase tracking-widest mb-3">Assessments</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+                          {enabledAssessments.has("mbti") && (
+                            <InputChip
+                              label="MBTI"
+                              value={
+                                entry.payload.mbtiType
+                                  ? `${entry.payload.mbtiType}${entry.payload.variant ? `-${entry.payload.variant}` : ""}`
+                                  : "—"
+                              }
+                            />
+                          )}
+                          {enabledAssessments.has("spark") && <InputChip label="Sparketype" value={sparkSummary} />}
+                          {enabledAssessments.has("ennea") && <InputChip label="Enneagram" value={entry.payload.enneagramType || "—"} />}
+                          {enabledAssessments.has("disc") && <InputChip label="DiSC" value={entry.payload.discStyle || "—"} />}
+                          {enabledAssessments.has("bigfive") && <InputChip label="Big Five" value={bigFiveSummary} />}
+                          {enabledAssessments.has("clifton") && <InputChip label="CliftonStrengths" value={cliftonSummary} />}
+                          {enabledAssessments.has("zodiac") && <InputChip label="Chinese Zodiac" value={zodiacSummary} />}
+                          {enabledAssessments.has("astro") && <InputChip label="Astrology" value={entry.payload.sunSign || "—"} />}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div>
-                      <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-3">Preferences</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
-                        <InputChip label="Work Environment" value={entry.payload.workEnv || "—"} />
-                        <InputChip label="Organization" value={entry.payload.orgStructure || "—"} />
-                        <InputChip label="Education Target" value={eduLabel} />
-                        {entry.payload.taskDislikes.length > 0 && (
-                          <div className="col-span-2 sm:col-span-3">
-                            <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-1">Task Dislikes</p>
-                            <p className="text-sm text-[#111111]">{entry.payload.taskDislikes.join(", ")}</p>
-                          </div>
-                        )}
+                    {enabledOptional.size > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-3">Preferences</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+                          {enabledOptional.has("workEnv") && <InputChip label="Work Environment" value={entry.payload.workEnv || "—"} />}
+                          {enabledOptional.has("orgStructure") && <InputChip label="Organization" value={entry.payload.orgStructure || "—"} />}
+                          {enabledOptional.has("targetEdu") && <InputChip label="Education Target" value={eduLabel} />}
+                          {enabledOptional.has("taskDislikes") && entry.payload.taskDislikes.length > 0 && (
+                            <div className="col-span-2 sm:col-span-3">
+                              <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-1">Task Dislikes</p>
+                              <p className="text-sm text-[#111111]">{entry.payload.taskDislikes.join(", ")}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {entry.activeVariables && (
                       <div>
