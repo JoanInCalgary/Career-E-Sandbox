@@ -42,11 +42,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing or invalid payload" }, { status: 400 });
   }
 
-  // Default to Claude; fall back if an unknown provider is passed
+  // Default to Groq (fastest of the enabled providers) if the client didn't
+  // send one or sent something unrecognized; fall back to whatever was passed.
   const provider: LLMProvider =
     rawProvider && VALID_PROVIDERS.includes(rawProvider as LLMProvider)
       ? (rawProvider as LLMProvider)
-      : "claude";
+      : "groq";
 
   // Search limits are enforced per account. Signed-out visitors (no session
   // cookie) aren't tracked here — this only gates logged-in usage. Quota is

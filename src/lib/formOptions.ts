@@ -97,6 +97,23 @@ export const RACE_OPTIONS = [
   "Prefer not to say",
 ].map((s) => ({ value: s, label: s }));
 
+/** Every assessment framework offered — all enabled by default, but each can
+ * be individually switched off so users have full sandbox freedom over what
+ * feeds into their matches. Shared by AssessmentForm (UI toggles),
+ * personalityProfile (persisted default), and the AI prompt builder, so all
+ * three agree on the full set and its default "everything on" state. */
+export const ASSESSMENT_IDS = [
+  "mbti",
+  "spark",
+  "clifton",
+  "bigfive",
+  "ennea",
+  "disc",
+  "zodiac",
+  "astro",
+] as const;
+export type AssessmentId = (typeof ASSESSMENT_IDS)[number];
+
 export const WORK_ENV_OPTIONS = ["Fully Remote", "Hybrid", "In-Office"] as const;
 export type WorkEnv = (typeof WORK_ENV_OPTIONS)[number];
 

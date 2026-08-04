@@ -11,6 +11,7 @@ import {
   replacePersonalityProfile,
   type PersonalityProfile,
 } from "@/src/lib/personalityProfile";
+import { ASSESSMENT_IDS } from "@/src/lib/formOptions";
 import type { FullAssessmentPayload } from "@/src/lib/types";
 import type { CareerMatch } from "@/src/lib/mockData";
 
@@ -38,6 +39,9 @@ function payloadToPersonality(
       "optionalEnabled" in payload
         ? payload.optionalEnabled ?? []
         : (payload as FullAssessmentPayload).enabledOptional ?? [],
+    // Same field name on both FullAssessmentPayload and PersonalityProfile —
+    // falls back to "everything on" for rows saved before this existed.
+    enabledAssessments: payload.enabledAssessments ?? [...ASSESSMENT_IDS],
   };
 }
 
