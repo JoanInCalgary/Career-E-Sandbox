@@ -86,7 +86,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const startedAt = Date.now();
-    const result = await runCareerAgent(payload, provider);
+    // Passing req.signal lets a client-cancelled request (Stop button,
+    // navigating away, closing the tab) actually cancel the in-flight LLM
+    // call — see the comment on runCareerAgent. Without this, generation
+    // kept running to completion after the client gave up, and still
+    // consumed one of the account's 20 searches for a result nobody saw.
+    const result = await runCareerAgent(payload, provider, req.signal);
     const generationTimeMs = Date.now() - startedAt;
 
     const usage = account ? (await accountStore.recordSearch(account.id)).usage : null;
@@ -106,7 +111,15 @@ export async function POST(req: NextRequest) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/careers] Error:", message);
+    // req.signal fires when the client disconnects (Stop button, navigation,
+    // closed tab) — that's expected cancellation, not a generation failure,
+    // so it's logged at a lower severity and no quota was consumed for it
+    // (recordSearch above never ran).
+    if (err instanceof Error && err.name === "AbortError") {
+      console.log("[/api/careers] Request cancelled by client before generation finished.");
+    } else {
+      console.error("[/api/careers] Error:", message);
+    }
 
     // Return a structured error so the frontend can show a user-friendly fallback
     return NextResponse.json(

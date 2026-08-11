@@ -204,7 +204,7 @@ function buildUserPrompt(payload: FullAssessmentPayload): string {
 
 // Provider clients
 
-async function callClaude(system: string, user: string): Promise<string> {
+async function callClaude(system: string, user: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set");
 
@@ -225,6 +225,7 @@ async function callClaude(system: string, user: string): Promise<string> {
         { role: "assistant", content: "{" },
       ],
     }),
+    signal,
   });
 
   if (!res.ok) {
@@ -237,7 +238,7 @@ async function callClaude(system: string, user: string): Promise<string> {
   return "{" + (data.content?.[0]?.text ?? "");
 }
 
-async function callOpenAI(system: string, user: string): Promise<string> {
+async function callOpenAI(system: string, user: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 
@@ -256,6 +257,7 @@ async function callOpenAI(system: string, user: string): Promise<string> {
         { role: "user", content: user },
       ],
     }),
+    signal,
   });
 
   if (!res.ok) {
@@ -276,7 +278,7 @@ async function callOpenAI(system: string, user: string): Promise<string> {
   return content;
 }
 
-async function callGemini(system: string, user: string): Promise<string> {
+async function callGemini(system: string, user: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
 
@@ -300,6 +302,7 @@ async function callGemini(system: string, user: string): Promise<string> {
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
+      signal,
     }
   );
 
@@ -312,7 +315,7 @@ async function callGemini(system: string, user: string): Promise<string> {
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 }
 
-async function callGroq(system: string, user: string): Promise<string> {
+async function callGroq(system: string, user: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not set");
 
@@ -341,6 +344,7 @@ async function callGroq(system: string, user: string): Promise<string> {
         { role: "user", content: user },
       ],
     }),
+    signal,
   });
 
   if (!res.ok) {
@@ -356,7 +360,7 @@ async function callGroq(system: string, user: string): Promise<string> {
   return content;
 }
 
-async function callOpenRouter(system: string, user: string): Promise<string> {
+async function callOpenRouter(system: string, user: string, signal?: AbortSignal): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
 
@@ -419,6 +423,7 @@ async function callOpenRouter(system: string, user: string): Promise<string> {
         { role: "user", content: user },
       ],
     }),
+    signal,
   });
 
   if (!res.ok) {
@@ -545,21 +550,32 @@ function parseResponse(
   };
 }
 
-async function callProvider(provider: LLMProvider, system: string, user: string): Promise<string> {
+async function callProvider(
+  provider: LLMProvider,
+  system: string,
+  user: string,
+  signal?: AbortSignal
+): Promise<string> {
   switch (provider) {
     case "claude":
-      return callClaude(system, user);
+      return callClaude(system, user, signal);
     case "openai":
-      return callOpenAI(system, user);
+      return callOpenAI(system, user, signal);
     case "gemini":
-      return callGemini(system, user);
+      return callGemini(system, user, signal);
     case "groq":
-      return callGroq(system, user);
+      return callGroq(system, user, signal);
     case "openrouter":
-      return callOpenRouter(system, user);
+      return callOpenRouter(system, user, signal);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
+}
+
+/** True for both DOMException AbortError (browser/undici fetch) and the
+ *  plain Error some runtimes throw with the same name when a signal fires. */
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === "AbortError";
 }
 
 function wait(ms: number): Promise<void> {
@@ -580,7 +596,14 @@ const RETRY_DELAY_MS = 1200;
 
 export async function runCareerAgent(
   payload: FullAssessmentPayload,
-  provider: LLMProvider = "claude"
+  provider: LLMProvider = "claude",
+  // Forwarded from the incoming request (route.ts passes req.signal). Lets a
+  // client-cancelled or abandoned search (Stop button, navigating away,
+  // closing the tab) actually stop the in-flight LLM call instead of
+  // silently finishing server-side — which previously still recorded a
+  // completed search against the account's 20-search quota even though the
+  // user never saw a result for it.
+  signal?: AbortSignal
 ): Promise<AgentResult> {
   const system = buildSystemPrompt();
   const user = buildUserPrompt(payload);
@@ -588,8 +611,11 @@ export async function runCareerAgent(
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    if (signal?.aborted) {
+      throw lastError instanceof Error ? lastError : new Error("Request aborted");
+    }
     try {
-      const raw = await callProvider(provider, system, user);
+      const raw = await callProvider(provider, system, user, signal);
       const parsed = parseResponse(raw);
       return {
         provider,
@@ -598,6 +624,12 @@ export async function runCareerAgent(
       };
     } catch (err) {
       lastError = err;
+      // Don't retry (or log as a failure) once the client has disconnected —
+      // there's no one left to deliver a retried result to, and burning
+      // another attempt just delays releasing the connection.
+      if (isAbortError(err) || signal?.aborted) {
+        throw err;
+      }
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[runCareerAgent] ${provider} attempt ${attempt}/${MAX_ATTEMPTS} failed:`, message);
       if (attempt < MAX_ATTEMPTS) {
