@@ -304,6 +304,15 @@ function ResultsHistoryContent() {
                               <p className="text-sm text-[#111111]">{entry.payload.taskDislikes.join(", ")}</p>
                             </div>
                           )}
+                          {enabledOptional.has("demoAge") && entry.payload.ageRange && (
+                            <InputChip label="Age Range" value={entry.payload.ageRange} />
+                          )}
+                          {enabledOptional.has("demoGender") && entry.payload.gender && (
+                            <InputChip label="Gender" value={entry.payload.gender} />
+                          )}
+                          {enabledOptional.has("demoRace") && entry.payload.race && (
+                            <InputChip label="Race / Ethnicity" value={entry.payload.race} />
+                          )}
                         </div>
                       </div>
                     )}
