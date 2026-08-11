@@ -42,6 +42,10 @@ interface ResolvedCareer {
   career: CareerMatch;
   /** The assessment inputs that produced this result, if we found it via history. */
   payload?: FullAssessmentPayload;
+  /** The results-history entry id this career was found in, if any — lets
+   * "Back to Results" restore the exact result set instead of landing on an
+   * empty search page. */
+  historyId?: string;
 }
 
 // ── Lookup ────────────────────────────────────────────────────────────────────
@@ -55,7 +59,7 @@ interface ResolvedCareer {
 function resolveCareer(id: string): ResolvedCareer | null {
   for (const entry of getHistoryEntries()) {
     const match = entry.careers.find((c) => c.id === id);
-    if (match) return { career: match, payload: entry.payload };
+    if (match) return { career: match, payload: entry.payload, historyId: entry.id };
   }
   const fav = getFavourites().find((f) => f.career.id === id);
   if (fav) return { career: fav.career };
@@ -235,15 +239,16 @@ export default function CareerDetailPage() {
     );
   }
 
-  const { career, payload } = resolved;
+  const { career, payload, historyId } = resolved;
   const isFlagged = career.status === "flagged";
+  const backToResultsHref = historyId ? `/search?historyId=${encodeURIComponent(historyId)}` : "/search";
 
   return (
     <div className="min-h-screen bg-cream">
       <AppNav active="search" />
 
       <main className="px-6 md:px-8 py-6 md:py-8">
-        <Link href="/search" className="inline-flex items-center gap-1.5 text-sm text-[#FF5500] font-semibold hover:underline mb-6">
+        <Link href={backToResultsHref} className="inline-flex items-center gap-1.5 text-sm text-[#FF5500] font-semibold hover:underline mb-6">
           <IconArrowLeft />
           Back to Results
         </Link>
@@ -407,8 +412,8 @@ export default function CareerDetailPage() {
                     return (
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <Users weight="bold" className="w-3.5 h-3.5 text-[#888888]" />
-                          <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest">
+                          <Users weight="bold" className="w-3.5 h-3.5 text-[#FF5500]" />
+                          <p className="text-[10px] font-bold text-[#FF5500] uppercase tracking-widest">
                             Preferences included in this search
                           </p>
                         </div>
@@ -416,7 +421,7 @@ export default function CareerDetailPage() {
                           {prefs.map((p) => (
                             <span
                               key={p.label}
-                              className="text-[11px] font-semibold text-[#555555] bg-[#F5F5F5] border border-[#E8E8E8] rounded-full px-3 py-1"
+                              className="text-[11px] font-semibold text-[#FF5500] bg-[#FFF3EC] border border-[#FF5500]/30 rounded-full px-3 py-1"
                             >
                               {p.label}: {p.value}
                             </span>

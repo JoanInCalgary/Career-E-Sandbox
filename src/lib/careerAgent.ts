@@ -175,7 +175,10 @@ function buildUserPrompt(payload: FullAssessmentPayload): string {
     optionals.has("workEnv") ||
     optionals.has("orgStructure") ||
     optionals.has("targetEdu") ||
-    (optionals.has("taskDislikes") && filledDislikes.length > 0);
+    (optionals.has("taskDislikes") && filledDislikes.length > 0) ||
+    (optionals.has("demoAge") && !!payload.ageRange) ||
+    (optionals.has("demoGender") && !!payload.gender) ||
+    (optionals.has("demoRace") && !!payload.race);
 
   if (hasPreferences) {
     lines.push(`\n### Preferences`);
@@ -185,6 +188,11 @@ function buildUserPrompt(payload: FullAssessmentPayload): string {
     if (optionals.has("taskDislikes") && filledDislikes.length > 0) {
       lines.push(`- Task Dislikes: ${filledDislikes.join(", ")}`);
     }
+    // Demographics — only sent when the user has both filled these in AND
+    // explicitly opted them into matching via the optional toggles above.
+    if (optionals.has("demoAge") && payload.ageRange) lines.push(`- Age Range: ${payload.ageRange}`);
+    if (optionals.has("demoGender") && payload.gender) lines.push(`- Gender: ${payload.gender}`);
+    if (optionals.has("demoRace") && payload.race) lines.push(`- Race / Ethnicity: ${payload.race}`);
   }
 
   lines.push(

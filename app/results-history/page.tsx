@@ -293,7 +293,7 @@ function ResultsHistoryContent() {
 
                     {enabledOptional.size > 0 && (
                       <div>
-                        <p className="text-[10px] font-bold text-[#888888] uppercase tracking-widest mb-3">Preferences</p>
+                        <p className="text-[10px] font-bold text-[#FF5500] uppercase tracking-widest mb-3">Preferences</p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
                           {enabledOptional.has("workEnv") && <InputChip label="Work Environment" value={entry.payload.workEnv || "—"} />}
                           {enabledOptional.has("orgStructure") && <InputChip label="Organization" value={entry.payload.orgStructure || "—"} />}
