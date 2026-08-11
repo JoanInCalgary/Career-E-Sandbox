@@ -18,12 +18,23 @@ import {
   Lightning,
   Star,
   Users,
+  CaretDown,
+  ChartBar,
 } from "@phosphor-icons/react";
 import type { CareerMatch } from "@/src/lib/mockData";
 import { getEnabledAssessmentIds, type FullAssessmentPayload } from "@/src/lib/types";
 import { EDU_TARGET_LABELS } from "@/src/lib/formOptions";
 import { getHistoryEntries } from "@/src/lib/modelRuns";
 import { getFavourites } from "@/src/lib/favourites";
+import {
+  getTypeRankings,
+  getQuartile,
+  QUARTILE_META,
+  RANKING_FRAMEWORK_OPTIONS,
+  type RankingFramework,
+  type Quartile,
+  type TypeRanking,
+} from "@/src/lib/typeRankings";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +84,106 @@ function MarketIcon({ outlook }: { outlook: CareerMatch["marketOutlook"] }) {
   if (outlook === "down") return <TrendDown weight="bold" className="w-4 h-4 shrink-0 text-[#EE0000]" />;
   return <Minus weight="bold" className="w-4 h-4 shrink-0 text-[#888888]" />;
 }
+function ChevronDown() {
+  return <CaretDown weight="bold" className="w-4 h-4" />;
+}
+
+// ── Quartile view sub-components ────────────────────────────────────────────
+
+function QuartileFilter({ value, onChange }: { value: Quartile; onChange: (v: Quartile) => void }) {
+  const options: { value: Quartile; label: string }[] = [
+    { value: "all", label: "All types" },
+    { value: "q1", label: "Top Quartile — best fit" },
+    { value: "q2", label: "2nd Quartile" },
+    { value: "q3", label: "3rd Quartile" },
+    { value: "q4", label: "Bottom Quartile — worst fit" },
+  ];
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as Quartile)}
+        className="appearance-none bg-cream border border-[#E8E8E8] rounded-lg px-3 py-1.5 text-xs text-[#111111] pr-8 focus:outline-none focus:border-[#FF5500] cursor-pointer"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#555555]">
+        <ChevronDown />
+      </span>
+    </div>
+  );
+}
+
+function RankingRow({ rank, item, quartile }: { rank: number; item: TypeRanking; quartile: 1 | 2 | 3 | 4 }) {
+  const meta = QUARTILE_META[quartile];
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-[#E8E8E8] bg-cream hover:bg-[#F5F5F5] transition-colors">
+      <span className="text-sm font-bold w-6 shrink-0 text-center mt-0.5 text-[#888888]">{rank}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span className="text-sm font-bold text-[#111111]">{item.type}</span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ml-auto ${meta.badge}`}>{meta.label}</span>
+        </div>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="flex-1 h-1.5 bg-[#F0F0F0] rounded-full overflow-hidden">
+            <div className={`h-full rounded-full ${meta.bar}`} style={{ width: `${item.fitScore}%` }} />
+          </div>
+          <span className={`text-[11px] font-bold w-8 text-right shrink-0 ${meta.text}`}>{item.fitScore}%</span>
+        </div>
+        <p className="text-[11px] text-[#555555] leading-snug">{item.label}</p>
+      </div>
+    </div>
+  );
+}
+
+function RankingPanel({
+  items,
+  filter,
+  onFilterChange,
+}: {
+  items: TypeRanking[];
+  filter: Quartile;
+  onFilterChange: (v: Quartile) => void;
+}) {
+  const sorted = [...items].sort((a, b) => b.fitScore - a.fitScore);
+  const filtered =
+    filter === "all"
+      ? sorted
+      : sorted.filter((_, i) => getQuartile(i + 1, sorted.length) === parseInt(filter[1], 10));
+
+  return (
+    <div>
+      <div className="flex items-center justify-end mb-3">
+        <QuartileFilter value={filter} onChange={onFilterChange} />
+      </div>
+
+      {filter === "all" && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {([1, 2, 3, 4] as const).map((q) => (
+            <span key={q} className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${QUARTILE_META[q].badge}`}>
+              Q{q}: {QUARTILE_META[q].label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {filtered.map((item, i) => {
+          const globalRank = sorted.findIndex((s) => s.type === item.type) + 1;
+          const quartile = getQuartile(globalRank, sorted.length);
+          return (
+            <RankingRow key={item.type} rank={filter === "all" ? i + 1 : globalRank} item={item} quartile={quartile} />
+          );
+        })}
+        {filtered.length === 0 && (
+          <p className="text-sm text-[#888888] text-center py-6">No types in this quartile.</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -82,10 +193,17 @@ export default function CareerDetailPage() {
   const id = decodeURIComponent(rawId);
 
   const [resolved, setResolved] = useState<ResolvedCareer | null | undefined>(undefined);
+  const [activeFramework, setActiveFramework] = useState<RankingFramework>("mbti");
+  const [quartileFilter, setQuartileFilter] = useState<Quartile>("all");
 
   useEffect(() => {
     setResolved(resolveCareer(id));
   }, [id]);
+
+  function handleFrameworkChange(fw: RankingFramework) {
+    setActiveFramework(fw);
+    setQuartileFilter("all");
+  }
 
   // Hydrating from the in-memory store — avoid a flash of "not found".
   if (resolved === undefined) {
@@ -280,6 +398,9 @@ export default function CareerDetailPage() {
                         label: "Task Dislikes",
                         value: payload.taskDislikes.join(", "),
                       },
+                      optionals.has("demoAge") && payload.ageRange && { label: "Age Range", value: payload.ageRange },
+                      optionals.has("demoGender") && payload.gender && { label: "Gender", value: payload.gender },
+                      optionals.has("demoRace") && payload.race && { label: "Race / Ethnicity", value: payload.race },
                     ].filter(Boolean) as { label: string; value: string }[];
 
                     if (prefs.length === 0) return null;
@@ -320,6 +441,43 @@ export default function CareerDetailPage() {
                 Match percentage and every field above come directly from this search&apos;s generated result — not
                 a generic template.
               </div>
+            </div>
+
+            {/* ── Quartile view: how every type in a framework would fit this career ── */}
+            <div className="bg-cream rounded-2xl border border-[#E8E8E8] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 mt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <ChartBar weight="bold" className="w-4 h-4 text-[#FF5500]" />
+                <h2 className="text-sm font-bold text-[#111111]">Fit Rankings by Type</h2>
+              </div>
+              <p className="text-[11px] text-[#888888] mb-4 leading-relaxed">
+                Exploratory only — shows how every type within a framework would rank against this specific career,
+                split into quartiles. Not based on your submitted profile above, and not a validated psychometric
+                result — use it to see the range of fits this role could have.
+              </p>
+
+              <div className="flex items-center gap-3 mb-4 flex-wrap">
+                <p className="text-[11px] font-bold text-[#888888] uppercase tracking-widest shrink-0">View rankings by</p>
+                <div className="relative">
+                  <select
+                    value={activeFramework}
+                    onChange={(e) => handleFrameworkChange(e.target.value as RankingFramework)}
+                    className="appearance-none bg-cream border border-[#E8E8E8] rounded-lg px-3 py-1.5 text-sm font-semibold text-[#111111] pr-8 focus:outline-none focus:border-[#FF5500] cursor-pointer"
+                  >
+                    {RANKING_FRAMEWORK_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[#555555]">
+                    <ChevronDown />
+                  </span>
+                </div>
+              </div>
+
+              <RankingPanel
+                items={getTypeRankings(career, activeFramework)}
+                filter={quartileFilter}
+                onFilterChange={setQuartileFilter}
+              />
             </div>
           </div>
         </div>
