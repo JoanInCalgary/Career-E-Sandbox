@@ -30,11 +30,14 @@ import { getHistoryEntries, topRecommendedCareer, type ResultsHistoryEntry } fro
 import { mbtiOptions } from "@/src/lib/mockData";
 import { getFavourites, removeFavourite, type FavouriteCareer } from "@/src/lib/favourites";
 import {
+  AGE_RANGES,
   CLIFTON_STRENGTHS,
   DISC_STYLES,
   EDU_TARGET_LABELS,
   ENNEAGRAM_OPTIONS,
+  GENDER_OPTIONS,
   ORG_OPTIONS,
+  RACE_OPTIONS,
   SPARKETYPE_OPTIONS,
   SUN_SIGNS,
   TASK_DISLIKE_OPTIONS,
@@ -404,6 +407,9 @@ function DashboardContent() {
     optionalEnabled.has("taskDislikes") && profile.taskDislikes.length > 0
       ? profile.taskDislikes.join(" · ")
       : "Not set";
+  const ageRangeDisplay = optionalEnabled.has("demoAge") && profile.ageRange ? profile.ageRange : "Not set";
+  const genderDisplay = optionalEnabled.has("demoGender") && profile.gender ? profile.gender : "Not set";
+  const raceDisplay = optionalEnabled.has("demoRace") && profile.race ? profile.race : "Not set";
 
   return (
     <div className="min-h-screen bg-cream">
@@ -503,6 +509,9 @@ function DashboardContent() {
                     { label: "Target Education", value: targetEduDisplay },
                     { label: "Task Dislikes", value: taskDislikesDisplay },
                     { label: "Org Structure", value: orgStructureDisplay },
+                    { label: "Age Range", value: ageRangeDisplay },
+                    { label: "Gender", value: genderDisplay },
+                    { label: "Race / Ethnicity", value: raceDisplay },
                   ].map(({ label, value }) => (
                     <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-2.5 py-1.5">
                       <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
@@ -742,6 +751,51 @@ function DashboardContent() {
                         </label>
                       ))}
                     </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <FieldLabel>Age Range</FieldLabel>
+                      <IncludeToggle
+                        checked={(draftProfile.optionalEnabled ?? []).includes("demoAge")}
+                        onChange={() => toggleDraftOptional("demoAge")}
+                      />
+                    </div>
+                    <StyledSelect
+                      value={draftProfile.ageRange}
+                      onChange={(v) => updateDraft("ageRange", v)}
+                      options={AGE_RANGES}
+                      placeholder="Select range..."
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <FieldLabel>Gender</FieldLabel>
+                      <IncludeToggle
+                        checked={(draftProfile.optionalEnabled ?? []).includes("demoGender")}
+                        onChange={() => toggleDraftOptional("demoGender")}
+                      />
+                    </div>
+                    <StyledSelect
+                      value={draftProfile.gender}
+                      onChange={(v) => updateDraft("gender", v)}
+                      options={GENDER_OPTIONS}
+                      placeholder="Select..."
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <FieldLabel>Race / Ethnicity</FieldLabel>
+                      <IncludeToggle
+                        checked={(draftProfile.optionalEnabled ?? []).includes("demoRace")}
+                        onChange={() => toggleDraftOptional("demoRace")}
+                      />
+                    </div>
+                    <StyledSelect
+                      value={draftProfile.race}
+                      onChange={(v) => updateDraft("race", v)}
+                      options={RACE_OPTIONS}
+                      placeholder="Select..."
+                    />
                   </div>
                 </div>
               </div>

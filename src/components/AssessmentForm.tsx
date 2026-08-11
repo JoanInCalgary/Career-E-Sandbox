@@ -411,9 +411,9 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   const [taskDislikes, setTaskDislikes] = useState<Set<string>>(
     new Set(DEFAULT_PERSONALITY_PROFILE.taskDislikes)
   );
-  const [ageRange, setAgeRange] = useState("");
-  const [gender, setGender] = useState("");
-  const [race, setRace] = useState("");
+  const [ageRange, setAgeRange] = useState(DEFAULT_PERSONALITY_PROFILE.ageRange);
+  const [gender, setGender] = useState(DEFAULT_PERSONALITY_PROFILE.gender);
+  const [race, setRace] = useState(DEFAULT_PERSONALITY_PROFILE.race);
 
   const onValuesChangeRef = useRef(onValuesChange);
   onValuesChangeRef.current = onValuesChange;
@@ -460,6 +460,9 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     setOrgStructure(stored.orgStructure);
     setTargetEduIndex(stored.targetEduIndex);
     setTaskDislikes(new Set(stored.taskDislikes));
+    setAgeRange(stored.ageRange ?? "");
+    setGender(stored.gender ?? "");
+    setRace(stored.race ?? "");
     setEnabledOptional(new Set(stored.optionalEnabled ?? []));
     // Restore which assessment frameworks were toggled on/off last time,
     // same as optionalEnabled above — falls back to "everything on" for
@@ -487,6 +490,9 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
       orgStructure,
       targetEduIndex,
       taskDislikes: Array.from(taskDislikes),
+      ageRange,
+      gender,
+      race,
       optionalEnabled: Array.from(enabledOptional),
       enabledAssessments: Array.from(enabledAssessments),
     });
@@ -508,6 +514,9 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     orgStructure,
     targetEduIndex,
     taskDislikes,
+    ageRange,
+    gender,
+    race,
     enabledOptional,
     enabledAssessments,
   ]);
