@@ -25,6 +25,9 @@ export interface PersonalityProfile {
   orgStructure: OrgStructure;
   targetEduIndex: number;
   taskDislikes: string[];
+  ageRange: string;
+  gender: string;
+  race: string;
   /**
    * Which optional preference fields the user has actually opted into (ids:
    * "workEnv", "orgStructure", "targetEdu", "taskDislikes", "demoAge",
@@ -63,6 +66,9 @@ export const EMPTY_PERSONALITY_PROFILE: PersonalityProfile = {
   orgStructure: "Hierarchical",
   targetEduIndex: 0,
   taskDislikes: [],
+  ageRange: "",
+  gender: "",
+  race: "",
   optionalEnabled: [],
   enabledAssessments: [...ASSESSMENT_IDS],
 };

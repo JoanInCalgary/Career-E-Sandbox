@@ -35,6 +35,9 @@ function payloadToPersonality(
     orgStructure: payload.orgStructure ?? "Hierarchical",
     targetEduIndex: payload.targetEduIndex ?? 0,
     taskDislikes: payload.taskDislikes ?? [],
+    ageRange: payload.ageRange ?? "",
+    gender: payload.gender ?? "",
+    race: payload.race ?? "",
     optionalEnabled:
       "optionalEnabled" in payload
         ? payload.optionalEnabled ?? []
