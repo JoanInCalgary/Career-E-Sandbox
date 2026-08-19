@@ -478,6 +478,14 @@ export default function CareerDetailPage() {
                 </div>
               </div>
 
+              <div className="flex items-start gap-2 text-[11px] text-[#92400e] bg-[#fef3c7] rounded-lg px-3 py-2.5 mb-3">
+                <Warning weight="bold" className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>
+                  NOTICE: Quartile results below are currently skewed and may not accurately reflect relative fit
+                  across types. Please treat these rankings as illustrative only until this is fixed.
+                </span>
+              </div>
+
               <RankingPanel
                 items={getTypeRankings(career, activeFramework)}
                 filter={quartileFilter}
