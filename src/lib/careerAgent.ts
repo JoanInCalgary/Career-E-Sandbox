@@ -319,15 +319,15 @@ async function callGroq(system: string, user: string, signal?: AbortSignal): Pro
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not set");
 
-  const model = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+  const model = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 
-  // Groq's on-demand tier caps this org at 12000 tokens/minute (TPM), and that
-  // limit is checked against prompt tokens + max_tokens combined. The other
-  // providers request max_tokens: 16000, which alone exceeds Groq's TPM cap
-  // and 413s every call regardless of how small the actual prompt is. ~40
-  // career objects fit comfortably in ~8000 output tokens, leaving headroom
-  // for the ~1-1.5k token system+user prompt under the 12000 limit.
-  const maxTokens = Number(process.env.GROQ_MAX_TOKENS ?? 8000);
+  // Groq's on-demand tier for openai/gpt-oss-120b caps this org at 8000
+  // tokens/minute (TPM), and that limit is checked against prompt tokens +
+  // max_tokens combined. The previous llama default of 8000 max_tokens alone
+  // exceeded the new cap once the ~1–1.5k token system+user prompt was added
+  // (413 with Requested ~9145). Cap output at 6500 so prompt + max_tokens
+  // stays under 8000 with headroom for prompt size variance.
+  const maxTokens = Number(process.env.GROQ_MAX_TOKENS ?? 6500);
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",

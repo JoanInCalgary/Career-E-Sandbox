@@ -28,7 +28,7 @@ export const PROVIDER_INFO: ProviderInfo[] = [
   { id: "claude", label: "Claude Haiku 4.5 (Anthropic)", short: "Claude Haiku 4.5" },
   { id: "openai", label: "GPT-4o mini (OpenAI)", short: "GPT-4o mini" },
   { id: "gemini", label: "Gemini 2.5 Flash (Google AI Studio)", short: "Gemini 2.5 Flash" },
-  { id: "groq", label: "Llama 3.3 70B (Groq Cloud)", short: "Llama 3.3 70B (Groq)" },
+  { id: "groq", label: "OpenAI GPT-OSS 120B (Groq Cloud)", short: "OpenAI GPT-OSS 120B (Groq)" },
   { id: "openrouter", label: "Llama 3.3 70B (OpenRouter · SambaNova)", short: "Llama 3.3 70B (OpenRouter)" },
 ];
 
