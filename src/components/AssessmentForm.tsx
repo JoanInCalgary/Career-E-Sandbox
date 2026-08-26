@@ -54,6 +54,10 @@ interface AssessmentFormProps {
   /** Called at submit time with the complete form payload */
   onSubmitWithValues?: (payload: FullAssessmentPayload) => void;
   isLoading?: boolean;
+  /** Extra disable (e.g. provider cooldown) — independent of isLoading spinner state. */
+  generateDisabled?: boolean;
+  /** Override idle button label (e.g. cooldown countdown). */
+  generateLabel?: string;
 }
 
 function ChevronUp({ className = "w-4 h-4" }: { className?: string }) {
@@ -374,6 +378,8 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   onSubmit,
   onSubmitWithValues,
   isLoading,
+  generateDisabled = false,
+  generateLabel,
 }, ref) {
   const [sidebarTab, setSidebarTab] = useState<"assessments" | "additional">("assessments");
   void preload; // reserved for restore UX; no demographic auto-fill in MVP
@@ -836,7 +842,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
         <div className="flex justify-end pb-8">
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || generateDisabled}
             className="inline-flex items-center gap-2 bg-[#FF5500] text-white font-semibold text-base px-8 py-3.5 rounded hover:bg-[#DD4400] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoading ? (
@@ -845,7 +851,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
                 Calculating Career Path Results...
               </>
             ) : (
-              "Generate Results"
+              generateLabel ?? "Generate Results"
             )}
           </button>
         </div>
@@ -908,7 +914,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
             <button
               type="button"
               onClick={handleSubmitWithValues}
-              disabled={isLoading}
+              disabled={isLoading || generateDisabled}
               className="w-full flex items-center justify-center gap-2 bg-[#FF5500] text-white font-semibold text-sm py-2.5 rounded hover:bg-[#DD4400] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
@@ -917,7 +923,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
                   Recalculating...
                 </>
               ) : (
-                "Submit"
+                generateLabel ?? "Submit"
               )}
             </button>
           </div>

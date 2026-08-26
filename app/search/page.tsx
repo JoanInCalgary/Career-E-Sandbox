@@ -64,6 +64,9 @@ const EMPTY_RESULT_SET: ResultSet = {
 const DEFAULT_PROVIDER: LLMProvider =
   (process.env.NEXT_PUBLIC_DEFAULT_PROVIDER as LLMProvider | undefined) ?? "groq";
 
+/** Groq on-demand TPM is tight for gpt-oss-120b; block rapid re-searches. */
+const GROQ_COOLDOWN_MS = 60_000;
+
 /** Recommended cards are capped to this many, ranked by best fit, even if the
  * provider ever returns more than the 25 the prompt asks for. */
 const MAX_RECOMMENDED_SHOWN = 25;
@@ -204,11 +207,26 @@ function SearchContent() {
   const [generatedByProvider, setGeneratedByProvider] = useState<LLMProvider | null>(null);
   const [generationTimeMs, setGenerationTimeMs] = useState<number | null>(null);
   const [slowNotice, setSlowNotice] = useState(false);
+  const [groqCooldownUntil, setGroqCooldownUntil] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const latestPayloadRef = useRef<FullAssessmentPayload | null>(null);
   const isCalculatingRef = useRef(false);
   const formRef = useRef<AssessmentFormHandle>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Tick while a Groq cooldown is active so the button countdown updates.
+  useEffect(() => {
+    if (groqCooldownUntil <= Date.now()) return;
+    const id = setInterval(() => setNowMs(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [groqCooldownUntil]);
+
+  const groqCooldownRemainingSec =
+    activeProvider === "groq"
+      ? Math.max(0, Math.ceil((groqCooldownUntil - nowMs) / 1000))
+      : 0;
+  const groqOnCooldown = groqCooldownRemainingSec > 0;
 
   // Cancel any in-flight request and pending "slow" timer if the page unmounts.
   useEffect(() => {
@@ -409,8 +427,20 @@ function SearchContent() {
   async function handleSubmit(payload?: FullAssessmentPayload) {
     if (isCalculatingRef.current) return;
 
+    if (activeProvider === "groq") {
+      const remainingMs = groqCooldownUntil - Date.now();
+      if (remainingMs > 0) {
+        const secs = Math.ceil(remainingMs / 1000);
+        setGenerateError(
+          `Groq rate limits are tight — wait ${secs}s before searching again with this model.`
+        );
+        return;
+      }
+    }
+
     const effectivePayload = payload ?? latestPayloadRef.current;
     const wasResults = view === "results";
+    const providerForRun = activeProvider;
 
     isCalculatingRef.current = true;
     setIsCalculating(true);
@@ -443,12 +473,19 @@ function SearchContent() {
     // provider doesn't read as a hang.
     slowTimerRef.current = setTimeout(() => setSlowNotice(true), 10000);
 
-    const outcome = await fetchCareerResults(effectivePayload, activeProvider, controller.signal);
+    const outcome = await fetchCareerResults(effectivePayload, providerForRun, controller.signal);
 
     if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
     slowTimerRef.current = null;
     setSlowNotice(false);
     abortControllerRef.current = null;
+
+    // Start cooldown after any non-cancelled Groq call (success or error both
+    // burn TPM against the on-demand cap).
+    if (providerForRun === "groq" && !outcome.aborted) {
+      setGroqCooldownUntil(Date.now() + GROQ_COOLDOWN_MS);
+      setNowMs(Date.now());
+    }
 
     if (outcome.ok) {
       applyLiveResult(outcome, effectivePayload);
@@ -852,6 +889,8 @@ function SearchContent() {
                 onSubmit={() => { handleSubmit(); setPillOpen(false); }}
                 onSubmitWithValues={(p) => { handleSubmitWithValues(p); setPillOpen(false); }}
                 isLoading={isCalculating}
+                generateDisabled={groqOnCooldown}
+                generateLabel={groqOnCooldown ? `Wait ${groqCooldownRemainingSec}s` : undefined}
               />
             </div>
           </div>
@@ -980,14 +1019,22 @@ function SearchContent() {
                     stopGeneration();
                     return;
                   }
+                  if (groqOnCooldown) return;
                   const payload = formRef.current?.buildPayload() ?? latestPayloadRef.current ?? undefined;
                   if (payload) handleSubmitWithValues(payload);
                   else handleSubmit();
                   setPillOpen(false);
                   setModelMenuOpen(false);
                 }}
-                title={isCalculating ? "Stop generating" : undefined}
-                className="flex items-center gap-2 px-6 rounded-r-full text-white text-sm font-bold transition-colors shrink-0"
+                disabled={!isCalculating && groqOnCooldown}
+                title={
+                  isCalculating
+                    ? "Stop generating"
+                    : groqOnCooldown
+                      ? `Groq cooldown — wait ${groqCooldownRemainingSec}s`
+                      : undefined
+                }
+                className="flex items-center gap-2 px-6 rounded-r-full text-white text-sm font-bold transition-colors shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
                 style={{ backgroundColor: isCalculating ? "#CC3300" : "#FF5500" }}
               >
                 {isCalculating ? (
@@ -995,6 +1042,8 @@ function SearchContent() {
                     <StopIcon className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Stop</span>
                   </>
+                ) : groqOnCooldown ? (
+                  <span>Wait {groqCooldownRemainingSec}s</span>
                 ) : (
                   <>
                     <Lightning weight="bold" className="w-3.5 h-3.5" />
