@@ -480,18 +480,17 @@ function SearchContent() {
     setSlowNotice(false);
     abortControllerRef.current = null;
 
-    // Start cooldown after any non-cancelled Groq call (success or error both
-    // burn TPM against the on-demand cap).
-    if (providerForRun === "groq" && !outcome.aborted) {
-      setGroqCooldownUntil(Date.now() + GROQ_COOLDOWN_MS);
-      setNowMs(Date.now());
-    }
-
     if (outcome.ok) {
       applyLiveResult(outcome, effectivePayload);
       maybeNotifyUsage(outcome.usage);
       void refresh();
       setView("results");
+      // Start cooldown when results are shown so the 60s clock begins at
+      // display time, not while the request is still in flight.
+      if (providerForRun === "groq") {
+        setGroqCooldownUntil(Date.now() + GROQ_COOLDOWN_MS);
+        setNowMs(Date.now());
+      }
     } else if (outcome.aborted) {
       // Cancelled via the Stop button — return quietly, no error banner.
     } else if (outcome.limitReached) {
