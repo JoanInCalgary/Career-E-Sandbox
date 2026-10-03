@@ -20,8 +20,8 @@ import type { FullAssessmentPayload } from "@/src/lib/types";
 import { accountStore } from "@/src/lib/server/accountStore";
 import { getCurrentAccount } from "@/src/lib/server/currentAccount";
 
-// Allow up to 120 seconds for the LLM to respond — generating 25 recommended +
-// 15 non-recommended careers is a much larger response than the original 6+4,
+// Allow up to 120 seconds for the LLM to respond — generating 15 recommended +
+// 8 non-recommended careers is a much larger response than the original 6+4,
 // so the previous 60s ceiling left slower providers more likely to time out.
 export const maxDuration = 120;
 
