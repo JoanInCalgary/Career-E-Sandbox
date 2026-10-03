@@ -43,7 +43,7 @@ function buildSystemPrompt(): string {
 
 ## Rules
 1. Return ONLY a valid JSON object — no markdown, no preamble, no trailing text.
-2. Generate exactly 25 recommended careers and 15 non-recommended careers. Spread the recommended careers across as many of the valid domains as make sense for this profile — do not cluster them all into one or two domains — so that filtering by any single domain still returns a meaningful set of results.
+2. Generate exactly 15 recommended careers and 8 non-recommended careers. Spread the recommended careers across as many of the valid domains as make sense for this profile — do not cluster them all into one or two domains — so that filtering by any single domain still returns a meaningful set of results.
 3. Every field listed in the schema below is required (no nulls, no omissions).
 4. All career titles, salary ranges, and market statistics must be accurate, real, and current — do not hallucinate roles or figures.
 5. The "domain" field must be exactly one of: ${VALID_DOMAINS.join(", ")}.
