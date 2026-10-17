@@ -61,7 +61,7 @@ function buildSystemPrompt(): string {
 ## Output Schema
 {
   "confidencePercent": <integer 60-98>,
-  "activeVariables": "<short summary of key inputs used, e.g. MBTI: INTJ-A, Sparketype: Maven, Big Five: High-O/Low-E>",
+  "activeVariables": "<short summary of key inputs used, e.g. MBTI: INTJ-A, Strengths: Teaching, Big Five: High-O/Low-E>",
   "recommended": [
     {
       "id": "<slug string, e.g. rec-1>",
@@ -108,7 +108,7 @@ function buildSystemPrompt(): string {
 
 function buildUserPrompt(payload: FullAssessmentPayload): string {
   const eduLabel = EDU_TARGET_LABELS[payload.targetEduIndex] ?? "Bachelor's";
-  const filledStrengths = payload.strengths.filter(Boolean);
+  const filledStrengths = payload.careerStrengths.filter ?? [];
   const filledDislikes = payload.taskDislikes;
 
   const lines: string[] = ["## User Personality Profile"];
@@ -128,19 +128,9 @@ function buildUserPrompt(payload: FullAssessmentPayload): string {
     );
   }
 
-  if (
-    enabledAssessments.has("spark") &&
-    (payload.primarySpark || payload.secondarySpark || payload.antiSpark)
-  ) {
-    lines.push(`\n### Sparketype`);
-    if (payload.primarySpark) lines.push(`- Primary: ${payload.primarySpark}`);
-    if (payload.secondarySpark) lines.push(`- Secondary: ${payload.secondarySpark}`);
-    if (payload.antiSpark) lines.push(`- Anti-Sparketype: ${payload.antiSpark}`);
-  }
-
-  if (enabledAssessments.has("clifton") && filledStrengths.length > 0) {
-    lines.push(`\n### CliftonStrengths (Top ${filledStrengths.length})`);
-    filledStrengths.forEach((s, i) => lines.push(`- ${i + 1}. ${s}`));
+  if (enabledAssessments.has("strengths") && filledStrengths.length > 0) {
+    lines.push(`\n### Self-identified Strengths`);
+    lines.push(`- ${filledStrengths.join(", ")}`);
   }
 
   if (enabledAssessments.has("bigfive")) {
