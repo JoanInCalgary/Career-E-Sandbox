@@ -376,7 +376,7 @@ export default function CareerDetailPage() {
                         label: "Big Five",
                         value: `O:${payload.bigFive.O} C:${payload.bigFive.C} E:${payload.bigFive.E} A:${payload.bigFive.A} N:${payload.bigFive.N}`,
                       },
-                      { id: "strengths", label: "Strengths", value: payload.careerStrengths ?? [].join(", ") || "—" },
+                      { id: "strengths", label: "Strengths", value: (payload.careerStrengths ?? []).join(", ") || "—" },
                     ].filter((chip) => enabledAssessments.has(chip.id));
 
                     if (assessmentChips.length === 0) return null;
