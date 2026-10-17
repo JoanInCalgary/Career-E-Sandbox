@@ -274,7 +274,7 @@ function SearchContent() {
     const stored = getPersonalityProfile();
     const isEmpty =
       !stored.mbtiType &&
-      stored.careerStrengths?.length ?? 0) === 0 &&
+      (stored.careerStrengths?.length ?? 0) === 0 &&
       !stored.enneagramType &&
       !stored.discStyle &&
       !stored.zodiacAnimal &&
