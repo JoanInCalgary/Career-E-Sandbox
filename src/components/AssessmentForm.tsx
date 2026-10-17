@@ -245,7 +245,7 @@ function InlineHelpPanel({ helpKey }: { helpKey: keyof typeof ASSESSMENT_HELP })
   return (
     <div className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] p-4 space-y-3">
       <p className="text-xs text-[#555555] leading-relaxed">{help.description}</p>
-      {isPlaceholder ? (
+      {!help.providerUrl ? null : isPlaceholder ? (
         <span className="text-xs font-semibold text-[#888888] inline-block">
           {help.providerLabel} — {help.providerUrl}
         </span>
