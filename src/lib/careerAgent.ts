@@ -30,12 +30,17 @@ export interface AgentResult {
 const VALID_DOMAINS: CareerDomain[] = [
   "Technology",
   "Finance",
-  "Health",
-  "Medical",
+  "Health/Medical",
   "Law",
   "Business",
-  "Creative Arts",
+  "Arts/Media",
   "Education",
+  "Skilled Trades", 
+  "Engineering",
+  "Science/Research",
+  "Social Services",
+  "Environment/Agriculture",
+  "Hospitality/Tourism",
 ];
 
 function buildSystemPrompt(): string {
