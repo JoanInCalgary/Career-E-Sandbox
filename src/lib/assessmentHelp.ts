@@ -16,24 +16,12 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
       "INTJ profiles often align with analytical, systems-oriented careers requiring deep focus.",
     ],
   },
-  spark: {
+  strengths: {
     description:
-      "Sparketype identifies the work that makes you feel most alive. Your Primary drive, a Secondary complement, and an Anti-Sparketype that drains your energy.",
-    providerUrl: "https://sparketype.com/",
-    providerLabel: "Sparketype Official",
+      "Pick every strength that describes how you like to work. There's no limit, so choose as many as feel true for you. Your picks help match you with careers that use what you're good at.",
     goodToKnow: [
-      "Your Primary Sparketype reflects the work you'd do even if unpaid.",
-      "Anti-Sparketypes help flag career paths that may cause chronic burnout.",
-    ],
-  },
-  clifton: {
-    description:
-      "CliftonStrengths (Gallup) identifies your top talent themes from 34 strengths. The natural patterns of thinking, feeling, and behaving you do best.",
-    providerUrl: "https://www.gallup.com/cliftonstrengths/en/home.aspx",
-    providerLabel: "Gallup CliftonStrengths",
-    goodToKnow: [
-      "Rank your top 5 in order — earlier strengths carry more weight in career matching.",
-      "Strengths like Analytical and Strategic often correlate with research and data roles.",
+      "Choose strengths you enjoy using, not just ones you're capable of.",
+      "Selecting a handful of strengths usually gives sharper matches than selecting all of them.",
     ],
   },
   bigfive: {
