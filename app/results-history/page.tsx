@@ -146,13 +146,7 @@ function ResultsHistoryContent() {
               // payload happens to carry a value for.
               const enabledAssessments = getEnabledAssessmentIds(entry.payload);
               const enabledOptional = new Set(entry.payload.enabledOptional ?? []);
-              const sparkSummary =
-                entry.payload.primarySpark || entry.payload.secondarySpark || entry.payload.antiSpark
-                  ? `${entry.payload.primarySpark || "—"} · ${entry.payload.secondarySpark || "—"} · Anti: ${
-                      entry.payload.antiSpark || "—"
-                    }`
-                  : "—";
-              const cliftonSummary = entry.payload.strengths.filter(Boolean).join(", ") || "—";
+              const strengthsSummary = entry.payload.careerStrengths ?? []).join(", ") || "—";
               const bigFiveSummary = entry.payload.bigFive
                 ? `O:${entry.payload.bigFive.O} C:${entry.payload.bigFive.C} E:${entry.payload.bigFive.E} A:${entry.payload.bigFive.A} N:${entry.payload.bigFive.N}`
                 : "—";
@@ -280,13 +274,12 @@ function ResultsHistoryContent() {
                               }
                             />
                           )}
-                          {enabledAssessments.has("spark") && <InputChip label="Sparketype" value={sparkSummary} />}
                           {enabledAssessments.has("ennea") && <InputChip label="Enneagram" value={entry.payload.enneagramType || "—"} />}
                           {enabledAssessments.has("disc") && <InputChip label="DiSC" value={entry.payload.discStyle || "—"} />}
                           {enabledAssessments.has("bigfive") && <InputChip label="Big Five" value={bigFiveSummary} />}
-                          {enabledAssessments.has("clifton") && <InputChip label="CliftonStrengths" value={cliftonSummary} />}
                           {enabledAssessments.has("zodiac") && <InputChip label="Chinese Zodiac" value={zodiacSummary} />}
                           {enabledAssessments.has("astro") && <InputChip label="Astrology" value={entry.payload.sunSign || "—"} />}
+                          {enabledAssessments.has("strengths") && <InputChip label="Strengths" value={strengthsSummary} />}
                         </div>
                       </div>
                     )}
