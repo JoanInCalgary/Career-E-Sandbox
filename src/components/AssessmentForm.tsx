@@ -7,14 +7,13 @@ import { ASSESSMENT_HELP } from "@/src/lib/assessmentHelp";
 import {
   AGE_RANGES,
   ASSESSMENT_IDS,
-  CLIFTON_STRENGTHS,
+  CAREER_STRENGTHS,
   DISC_STYLES,
   EDU_TARGET_LABELS,
   ENNEAGRAM_OPTIONS,
   GENDER_OPTIONS,
   ORG_OPTIONS,
   RACE_OPTIONS,
-  SPARKETYPE_OPTIONS,
   SUN_SIGNS,
   TASK_DISLIKE_OPTIONS,
   WORK_ENV_OPTIONS,
@@ -401,10 +400,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   // in-memory store after mount once Auth has loaded the DB profile.
   const [mbtiType, setMbtiType] = useState(DEFAULT_PERSONALITY_PROFILE.mbtiType);
   const [variant, setVariant] = useState<"A" | "T" | "">(DEFAULT_PERSONALITY_PROFILE.variant);
-  const [primarySpark, setPrimarySpark] = useState(DEFAULT_PERSONALITY_PROFILE.primarySpark);
-  const [secondarySpark, setSecondarySpark] = useState(DEFAULT_PERSONALITY_PROFILE.secondarySpark);
-  const [antiSpark, setAntiSpark] = useState(DEFAULT_PERSONALITY_PROFILE.antiSpark);
-  const [strengths, setStrengths] = useState<string[]>(DEFAULT_PERSONALITY_PROFILE.strengths);
+  const [careerStrengths, setCareerStrengths] = useState<string[]>(DEFAULT_PERSONALITY_PROFILE.careerStrengths);
   const [bigFive, setBigFive] = useState(DEFAULT_PERSONALITY_PROFILE.bigFive);
   const [enneagramType, setEnneagramType] = useState(DEFAULT_PERSONALITY_PROFILE.enneagramType);
   const [discStyle, setDiscStyle] = useState(DEFAULT_PERSONALITY_PROFILE.discStyle);
@@ -452,10 +448,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     const stored = getPersonalityProfile();
     setMbtiType(stored.mbtiType);
     setVariant(stored.variant);
-    setPrimarySpark(stored.primarySpark);
-    setSecondarySpark(stored.secondarySpark);
-    setAntiSpark(stored.antiSpark);
-    setStrengths(stored.strengths);
+    setCareerStrengths(stored.CareerStrengths ?? []);
     setBigFive(stored.bigFive);
     setEnneagramType(stored.enneagramType);
     setDiscStyle(stored.discStyle);
@@ -482,10 +475,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     savePersonalityProfile({
       mbtiType,
       variant,
-      primarySpark,
-      secondarySpark,
-      antiSpark,
-      strengths,
+      careerStrengths,
       bigFive,
       enneagramType,
       discStyle,
@@ -535,8 +525,10 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     });
   }
 
-  function setStrength(i: number, v: string) {
-    setStrengths((prev) => prev.map((s, idx) => (idx === i ? v : s)));
+  function toggleCareerStrength(s: string) {
+    setCareerStrengths((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+    );
   }
 
   function setBigFiveTrait(trait: keyof typeof bigFive, v: number) {
@@ -623,23 +615,37 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     </>
   );
 
-  const sparkFields = (
-    <>
-      <div><FieldLabel>Primary Sparketype</FieldLabel><StyledSelect value={primarySpark} onChange={setPrimarySpark} options={SPARKETYPE_OPTIONS} placeholder="Select primary..." /></div>
-      <div><FieldLabel>Secondary Sparketype</FieldLabel><StyledSelect value={secondarySpark} onChange={setSecondarySpark} options={SPARKETYPE_OPTIONS} placeholder="Select secondary..." /></div>
-      <div><FieldLabel>Anti-Sparketype</FieldLabel><StyledSelect value={antiSpark} onChange={setAntiSpark} options={SPARKETYPE_OPTIONS} placeholder="Select anti-type..." /></div>
-    </>
-  );
-
-  const cliftonFields = (
-    <>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i}>
-          <FieldLabel>Strength {i + 1}</FieldLabel>
-          <StyledSelect value={strengths[i]} onChange={(v) => setStrength(i, v)} options={CLIFTON_STRENGTHS} placeholder={`Select strength ${i + 1}...`} />
-        </div>
-      ))}
-    </>
+  const strengthsFields = (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-[#555555]">Pick as many as you like ({careerStrengths.length} selected)</p>
+        {careerStrengths.length > 0 && (
+          <button type="button" onClick={() => setCareerStrengths([])} className="text-xs text-[#888888] underline hover:text-[#FF5500]">
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {CAREER_STRENGTHS.map((s) => {
+          const selected = careerStrengths.includes(s);
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => toggleCareerStrength(s)}
+              aria-pressed={selected}
+              className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
+                selected
+                  ? "bg-[#FF5500] text-white border-[#FF5500]"
+                  : "bg-cream text-[#555555] border-[#E8E8E8] hover:border-[#FF5500]"
+              }`}
+            >
+              {s}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 
   const bigFiveFields = (
@@ -785,14 +791,15 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
   if (layout === "page") {
     const assessmentCards = [
       { id: "mbti", title: "Myers-Briggs (MBTI)", helpKey: "mbti" as const, content: mbtiFields },
-      { id: "spark", title: "Sparketype", helpKey: "spark" as const, content: sparkFields },
-      { id: "clifton", title: "CliftonStrengths", helpKey: "clifton" as const, content: cliftonFields },
+      { id: "strengths", title: "Strengths", helpKey: "strengths" as const, content: strengthsFields },
       { id: "bigfive", title: "Big Five Model", helpKey: "bigfive" as const, content: bigFiveFields },
       { id: "ennea", title: "Enneagram", helpKey: "ennea" as const, content: <div><FieldLabel>Core Type</FieldLabel><StyledSelect value={enneagramType} onChange={setEnneagramType} options={ENNEAGRAM_OPTIONS} placeholder="Select type..." /></div> },
       { id: "disc", title: "DiSC Assessment", helpKey: "disc" as const, content: <div><FieldLabel>Primary Style</FieldLabel><StyledSelect value={discStyle} onChange={setDiscStyle} options={DISC_STYLES} placeholder="Select style..." /></div> },
       { id: "zodiac", title: "Chinese Zodiac", helpKey: "zodiac" as const, content: <><div><FieldLabel>Animal</FieldLabel><StyledSelect value={zodiacAnimal} onChange={setZodiacAnimal} options={ZODIAC_ANIMALS} placeholder="Select animal..." /></div><div><FieldLabel>Element</FieldLabel><StyledSelect value={zodiacElement} onChange={setZodiacElement} options={ZODIAC_ELEMENTS} placeholder="Select element..." /></div></> },
       { id: "astro", title: "Astrology", helpKey: "astro" as const, content: <div><FieldLabel>Sun Sign</FieldLabel><StyledSelect value={sunSign} onChange={setSunSign} options={SUN_SIGNS} placeholder="Select sign..." /></div> },
-    ].sort((a, b) => a.title.localeCompare(b.title));
+    ].sort((a, b) =>
+      a.id === "strengths" ? 1 : b.id === "strengths" ? -1 : a.title.localeCompare(b.title)
+    );
 
     return (
       <form
@@ -894,7 +901,6 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
               <div><FieldLabel>Animal</FieldLabel><StyledSelect value={zodiacAnimal} onChange={setZodiacAnimal} options={ZODIAC_ANIMALS} placeholder="Select animal..." /></div>
               <div><FieldLabel>Element</FieldLabel><StyledSelect value={zodiacElement} onChange={setZodiacElement} options={ZODIAC_ELEMENTS} placeholder="Select element..." /></div>
             </AccordionSection>
-            <AccordionSection title="CliftonStrengths" isOpen={openSections.has("clifton")} onToggle={() => toggleSection("clifton")} helpKey="clifton" compact enabled={enabledAssessments.has("clifton")} onToggleEnabled={() => toggleAssessment("clifton")}>{cliftonFields}</AccordionSection>
             <AccordionSection title="DiSC Assessment" isOpen={openSections.has("disc")} onToggle={() => toggleSection("disc")} helpKey="disc" compact enabled={enabledAssessments.has("disc")} onToggleEnabled={() => toggleAssessment("disc")}>
               <div><FieldLabel>Primary Style</FieldLabel><StyledSelect value={discStyle} onChange={setDiscStyle} options={DISC_STYLES} placeholder="Select style..." /></div>
             </AccordionSection>
@@ -902,7 +908,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
               <div><FieldLabel>Core Type</FieldLabel><StyledSelect value={enneagramType} onChange={setEnneagramType} options={ENNEAGRAM_OPTIONS} placeholder="Select type..." /></div>
             </AccordionSection>
             <AccordionSection title="Myers-Briggs (MBTI)" isOpen={openSections.has("mbti")} onToggle={() => toggleSection("mbti")} helpKey="mbti" compact enabled={enabledAssessments.has("mbti")} onToggleEnabled={() => toggleAssessment("mbti")}>{mbtiFields}</AccordionSection>
-            <AccordionSection title="Sparketype" isOpen={openSections.has("spark")} onToggle={() => toggleSection("spark")} helpKey="spark" compact enabled={enabledAssessments.has("spark")} onToggleEnabled={() => toggleAssessment("spark")}>{sparkFields}</AccordionSection>
+                        <AccordionSection title="Strengths" isOpen={openSections.has("strengths")} onToggle={() => toggleSection("strengths")} helpKey="strengths" compact enabled={enabledAssessments.has("strengths")} onToggleEnabled={() => toggleAssessment("strengths")}>{strengthsFields}</AccordionSection>
           </div>
         )}
         {sidebarTab === "additional" && (
