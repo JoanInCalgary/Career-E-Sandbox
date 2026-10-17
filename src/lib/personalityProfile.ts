@@ -49,7 +49,7 @@ export interface PersonalityProfile {
 export const EMPTY_PERSONALITY_PROFILE: PersonalityProfile = {
   mbtiType: "",
   variant: "",
-  careerStrengths: [],
+  engths: [],
   bigFive: { O: 50, C: 50, E: 50, A: 50, N: 50 },
   enneagramType: "",
   discStyle: "",
@@ -73,7 +73,7 @@ export const DEFAULT_PERSONALITY_PROFILE = EMPTY_PERSONALITY_PROFILE;
 function cloneProfile(profile: PersonalityProfile): PersonalityProfile {
   return {
     ...profile,
-    careerStrengths: [...profile.careerStrengths ?? [])],
+    careerStrengths: [...(profile.careerStrengths ?? [])],
     bigFive: { ...profile.bigFive },
     taskDislikes: [...profile.taskDislikes],
     optionalEnabled: [...(profile.optionalEnabled ?? [])],
