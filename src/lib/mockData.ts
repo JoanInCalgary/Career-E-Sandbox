@@ -1393,12 +1393,17 @@ export const CAREER_DOMAINS = [
   "All Domains",
   "Technology",
   "Finance",
-  "Health",
-  "Medical",
+  "Health/Medical",
   "Law",
   "Business",
-  "Creative Arts",
+  "Arts/Media",
   "Education",
+  "Skilled Trades",  
+  "Engineering",
+  "Science/Research",
+  "Social Services",
+  "Environment/Agriculture",
+  "Hospitality/Tourism",
 ] as const;
 
 export type CareerDomain = (typeof CAREER_DOMAINS)[number];
