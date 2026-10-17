@@ -42,7 +42,7 @@ export default function TermsPage() {
               Career-E-Sandbox is an educational tool that combines inputs from personality and
               preference frameworks, including MBTI, Big Five, self-identified strengths, Enneagram,
               DiSC, Chinese Zodiac, and Astrology, to generate exploratory career path suggestions. It is
-              built primarily for post-secondary students exploring career or program decisions, and
+              built primarily for adults exploring career or program decisions, and
               educators supporting that exploration.
             </p>
           </section>
