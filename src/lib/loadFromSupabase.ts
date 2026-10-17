@@ -21,10 +21,7 @@ function payloadToPersonality(
   return {
     mbtiType: payload.mbtiType ?? "",
     variant: (payload.variant as PersonalityProfile["variant"]) ?? "",
-    primarySpark: payload.primarySpark ?? "",
-    secondarySpark: payload.secondarySpark ?? "",
-    antiSpark: payload.antiSpark ?? "",
-    strengths: payload.strengths?.length ? payload.strengths : ["", "", "", "", ""],
+    careerStrengths: payload.careerStrengths ?? [],
     bigFive: payload.bigFive ?? { O: 50, C: 50, E: 50, A: 50, N: 50 },
     enneagramType: payload.enneagramType ?? "",
     discStyle: payload.discStyle ?? "",
