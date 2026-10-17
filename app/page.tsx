@@ -49,11 +49,9 @@ const FRAMEWORKS = [
   { name: "Astrology",          category: "Celestial Influence", descriptor: "Sun-sign archetypes as an astrological lens.",           index: "01" },
   { name: "Big Five Model",     category: "Trait Psychology",    descriptor: "OCEAN: the gold standard in personality science.",        index: "02" },
   { name: "Chinese Zodiac",     category: "Eastern Framework",   descriptor: "12-animal cycle with 5-element elemental modifiers.",    index: "03" },
-  { name: "CliftonStrengths",   category: "Talent Profile",      descriptor: "34-theme strengths inventory from Gallup research.",     index: "04" },
   { name: "DiSC Assessment",    category: "Behavioral Style",    descriptor: "Dominance, Influence, Steadiness, Conscientiousness.",   index: "05" },
   { name: "Enneagram",          category: "Motivational Type",   descriptor: "9 types mapping core fears, desires, and growth paths.", index: "06" },
   { name: "Myers-Briggs (MBTI)",category: "Personality Type",    descriptor: "16 cognitive preference types across 4 dichotomies.",    index: "07" },
-  { name: "Sparketype",         category: "Energy & Purpose",    descriptor: "Identifies the work that makes you feel most alive.",    index: "08" },
 ];
 
 const RESULTS_CALLOUTS = [
@@ -245,14 +243,14 @@ export default function LandingPage() {
               Supported frameworks
             </p>
             <h2 className="text-3xl md:text-4xl text-[#111111] mb-4">
-              8 ways to understand yourself
+              6 ways to understand yourself
             </h2>
             <p className="text-base text-[#555555] max-w-xl mx-auto">
               Already have results from one of these? Plug them in. Use as many or as few as you like.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {FRAMEWORKS.map((fw) => (
               <div
                 key={fw.name}
