@@ -11,10 +11,7 @@ import { syncPersonalityDebounced } from "@/src/lib/syncToSupabase";
 export interface PersonalityProfile {
   mbtiType: string;
   variant: "A" | "T" | "";
-  primarySpark: string;
-  secondarySpark: string;
-  antiSpark: string;
-  strengths: string[];
+  careerStrengths: string[];
   bigFive: { O: number; C: number; E: number; A: number; N: number };
   enneagramType: string;
   discStyle: string;
@@ -40,8 +37,8 @@ export interface PersonalityProfile {
    */
   optionalEnabled: string[];
   /**
-   * Which assessment frameworks (mbti, spark, clifton, bigfive, ennea, disc,
-   * zodiac, astro) the user has switched on, persisted the same way as
+   * Which assessment frameworks (mbti, bigfive, ennea, disc, zodiac, astro
+   * strengths) the user has switched on, persisted the same way as
    * optionalEnabled so a user's toggles survive across sessions/windows
    * instead of resetting to "everything checked" on every load.
    */
@@ -52,10 +49,7 @@ export interface PersonalityProfile {
 export const EMPTY_PERSONALITY_PROFILE: PersonalityProfile = {
   mbtiType: "",
   variant: "",
-  primarySpark: "",
-  secondarySpark: "",
-  antiSpark: "",
-  strengths: ["", "", "", "", ""],
+  careerStrengths: [],
   bigFive: { O: 50, C: 50, E: 50, A: 50, N: 50 },
   enneagramType: "",
   discStyle: "",
@@ -79,7 +73,7 @@ export const DEFAULT_PERSONALITY_PROFILE = EMPTY_PERSONALITY_PROFILE;
 function cloneProfile(profile: PersonalityProfile): PersonalityProfile {
   return {
     ...profile,
-    strengths: [...profile.strengths],
+    careerStrengths: [...profile.careerStrengths ?? [])],
     bigFive: { ...profile.bigFive },
     taskDislikes: [...profile.taskDislikes],
     optionalEnabled: [...(profile.optionalEnabled ?? [])],
