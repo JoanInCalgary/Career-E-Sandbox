@@ -367,7 +367,6 @@ export default function CareerDetailPage() {
                     const enabledAssessments = getEnabledAssessmentIds(payload);
                     const assessmentChips = [
                       { id: "mbti", label: "MBTI", value: payload.mbtiType ? `${payload.mbtiType}${payload.variant ? `-${payload.variant}` : ""}` : "—" },
-                      { id: "spark", label: "Primary Sparketype", value: payload.primarySpark || "—" },
                       { id: "ennea", label: "Enneagram", value: payload.enneagramType || "—" },
                       { id: "disc", label: "DiSC", value: payload.discStyle || "—" },
                       { id: "astro", label: "Sun Sign", value: payload.sunSign || "—" },
@@ -377,7 +376,7 @@ export default function CareerDetailPage() {
                         label: "Big Five",
                         value: `O:${payload.bigFive.O} C:${payload.bigFive.C} E:${payload.bigFive.E} A:${payload.bigFive.A} N:${payload.bigFive.N}`,
                       },
-                      { id: "clifton", label: "CliftonStrengths", value: payload.strengths.filter(Boolean).join(", ") || "—" },
+                      { id: "strengths", label: "Strengths", value: payload.careerStrengths ?? [].join(", ") || "—" },
                     ].filter((chip) => enabledAssessments.has(chip.id));
 
                     if (assessmentChips.length === 0) return null;
