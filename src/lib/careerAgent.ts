@@ -108,7 +108,7 @@ function buildSystemPrompt(): string {
 
 function buildUserPrompt(payload: FullAssessmentPayload): string {
   const eduLabel = EDU_TARGET_LABELS[payload.targetEduIndex] ?? "Bachelor's";
-  const filledStrengths = payload.careerStrengths.filter ?? [];
+  const filledStrengths = payload.careerStrengths ?? [];
   const filledDislikes = payload.taskDislikes;
 
   const lines: string[] = ["## User Personality Profile"];
