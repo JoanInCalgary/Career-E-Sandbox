@@ -47,7 +47,7 @@ export default function PrivacyPage() {
               <li>
                 <span className="font-semibold text-[#111111]">Personality &amp; preference data:</span>{" "}
                 the assessment results and preferences you voluntarily enter (e.g. MBTI type, Big Five
-                scores, Sparketype, work environment preference, education level, task dislikes) and, if
+                scores, strengths, work environment preference, education level, task dislikes) and, if
                 you choose to provide them, optional demographic fields such as age range, gender, or
                 race.
               </li>
