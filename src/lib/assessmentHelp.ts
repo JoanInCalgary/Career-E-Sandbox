@@ -19,6 +19,8 @@ export const ASSESSMENT_HELP: Record<string, AssessmentHelp> = {
   strengths: {
     description:
       "Pick every strength that describes how you like to work. There's no limit, so choose as many as feel true for you. Your picks help match you with careers that use what you're good at.",
+    providerUrl: "",
+    providerLabel: "",
     goodToKnow: [
       "Choose strengths you enjoy using, not just ones you're capable of.",
       "Selecting a handful of strengths usually gives sharper matches than selecting all of them.",
