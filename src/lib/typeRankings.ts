@@ -2,7 +2,7 @@
  * typeRankings.ts
  *
  * Powers the "quartile view" on the career detail page — a fit ranking of
- * every type within a framework (MBTI, Sparketype, Astrology/Sun Sign)
+ * every type within a framework (MBTI, Astrology/Sun Sign)
  * against one specific generated career, split into quartiles (best fit →
  * worst fit).
  *
@@ -14,18 +14,18 @@
  * around the career's own matchPercent. The same career always produces the
  * same rankings on every reload, but different careers produce different
  * spreads — this is an exploratory/illustrative lens, same framing already
- * used for Sparketype/Astrology elsewhere in the app (supplementary, not a
+ * used for Astrology elsewhere in the app (supplementary, not a
  * validated psychometric result).
  */
 
 import type { CareerMatch } from "@/src/lib/mockData";
 import { mbtiOptions } from "@/src/lib/mockData";
-import { SPARKETYPE_OPTIONS, SUN_SIGNS } from "@/src/lib/formOptions";
+import { SUN_SIGNS } from "@/src/lib/formOptions";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type Quartile = "all" | "q1" | "q2" | "q3" | "q4";
-export type RankingFramework = "mbti" | "sparketype" | "astrology";
+export type RankingFramework = "mbti" | "astrology";
 
 export interface TypeRanking {
   type: string;
@@ -76,19 +76,6 @@ const MBTI_TRAITS: Record<string, string> = {
   ESFP: "spontaneous, socially energetic engagement",
 };
 
-const SPARK_TRAITS: Record<string, string> = {
-  Maker: "building and creating tangible things",
-  Performer: "energizing others through performance",
-  Warrior: "competitive, goal-driven execution",
-  Sage: "teaching and translating complex ideas",
-  Advisor: "guiding others' decisions with expertise",
-  Nurturer: "supporting and developing people",
-  Investigator: "digging into problems for answers",
-  Maven: "acquiring and mastering knowledge",
-  Scientist: "structured hypothesis-testing and inquiry",
-  Essentialist: "refining ideas down to their core",
-};
-
 const SUN_SIGN_TRAITS: Record<string, string> = {
   Aries: "initiative and fast decision-making",
   Taurus: "steady persistence and practical follow-through",
@@ -106,10 +93,6 @@ const SUN_SIGN_TRAITS: Record<string, string> = {
 
 const FRAMEWORK_TYPES: Record<RankingFramework, { type: string; trait: string }[]> = {
   mbti: mbtiOptions.map((o) => ({ type: o.type, trait: MBTI_TRAITS[o.type] ?? "distinct working style" })),
-  sparketype: SPARKETYPE_OPTIONS.map((o) => ({
-    type: o.value,
-    trait: SPARK_TRAITS[o.value] ?? "distinct motivational drive",
-  })),
   astrology: SUN_SIGNS.map((o) => ({ type: o.value, trait: SUN_SIGN_TRAITS[o.value] ?? "distinct dispositional lens" })),
 };
 
@@ -161,6 +144,5 @@ export const QUARTILE_META: Record<number, { label: string; bar: string; badge: 
 
 export const RANKING_FRAMEWORK_OPTIONS: { value: RankingFramework; label: string }[] = [
   { value: "mbti", label: "Myers-Briggs (MBTI)" },
-  { value: "sparketype", label: "Sparketype" },
   { value: "astrology", label: "Sun Sign (Astrology)" },
 ];
