@@ -448,7 +448,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     const stored = getPersonalityProfile();
     setMbtiType(stored.mbtiType);
     setVariant(stored.variant);
-    setCareerStrengths(stored.CareerStrengths ?? []);
+    setCareerStrengths(stored.careerStrengths ?? []);
     setBigFive(stored.bigFive);
     setEnneagramType(stored.enneagramType);
     setDiscStyle(stored.discStyle);
@@ -496,10 +496,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     profileHydrated,
     mbtiType,
     variant,
-    primarySpark,
-    secondarySpark,
-    antiSpark,
-    strengths,
+    careerStrengths,
     bigFive,
     enneagramType,
     discStyle,
@@ -568,10 +565,7 @@ const AssessmentForm = forwardRef<AssessmentFormHandle, AssessmentFormProps>(fun
     return {
       mbtiType,
       variant,
-      primarySpark,
-      secondarySpark,
-      antiSpark,
-      strengths,
+      careerStrengths,
       bigFive,
       enneagramType,
       discStyle,
