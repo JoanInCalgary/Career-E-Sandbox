@@ -393,7 +393,7 @@ function DashboardContent() {
 
   const mbtiDisplay = `${profile.mbtiType}${profile.variant ? `-${profile.variant}` : ""}`;
   const bigFiveDisplay = `O:${profile.bigFive.O} C:${profile.bigFive.C} E:${profile.bigFive.E} A:${profile.bigFive.A} N:${profile.bigFive.N}`;
-  const strengthsDisplay = profile.careerStrengths ?? []).join(" · ") || "—";
+  const strengthsDisplay = (profile.careerStrengths ?? []).join(" · ") || "—";
   const zodiacDisplay = `${profile.zodiacAnimal || "—"} — ${profile.zodiacElement || "—"}`;
   const optionalEnabled = new Set(profile.optionalEnabled ?? []);
   const workEnvDisplay = optionalEnabled.has("workEnv") ? profile.workEnv : "Not set";
