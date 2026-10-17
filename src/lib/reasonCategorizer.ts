@@ -3,7 +3,7 @@
  *
  * Splits a career card's free-text pros/cons into two buckets so the UI can
  * show users which reasons trace back to their personality *assessments*
- * (MBTI, Big Five, Sparketype, etc.) versus their *preferences* (work
+ * (MBTI, Big Five, Strengths, etc.) versus their *preferences* (work
  * environment, education anchor, task dislikes, compensation, schedule).
  *
  * This is a lightweight keyword heuristic rather than a structured field on
