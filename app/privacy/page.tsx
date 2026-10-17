@@ -121,7 +121,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-bold text-[#111111] mb-2">8. Children&apos;s Privacy</h2>
             <p>
-              The Platform is intended for post-secondary students and is not directed to children under
+              The Platform is intended for adults and is not directed to children under
               13. We do not knowingly collect personal information from children under 13.
             </p>
           </section>
