@@ -31,14 +31,13 @@ import { mbtiOptions } from "@/src/lib/mockData";
 import { getFavourites, removeFavourite, type FavouriteCareer } from "@/src/lib/favourites";
 import {
   AGE_RANGES,
-  CLIFTON_STRENGTHS,
+  CAREER_STRENGTHS,
   DISC_STYLES,
   EDU_TARGET_LABELS,
   ENNEAGRAM_OPTIONS,
   GENDER_OPTIONS,
   ORG_OPTIONS,
   RACE_OPTIONS,
-  SPARKETYPE_OPTIONS,
   SUN_SIGNS,
   TASK_DISLIKE_OPTIONS,
   WORK_ENV_OPTIONS,
@@ -356,11 +355,13 @@ function DashboardContent() {
     setDraftProfile((prev) => ({ ...prev, [key]: value }));
   }
 
-  function updateDraftStrength(i: number, v: string) {
+  function toggleDraftCareerStrength(s: string) {
     setDraftProfile((prev) => {
-      const next = [...prev.strengths];
-      next[i] = v;
-      return { ...prev, strengths: next };
+      const current = prev.careerStrengths ?? [];
+      return {
+        ...prev,
+        careerStrengths: current.includes(s) ? current.filter((x) => x !== s) : [...current, s],
+      };
     });
   }
 
@@ -391,11 +392,8 @@ function DashboardContent() {
   const showProfileEmptyState = profileReady && !hasCompletedSearch;
 
   const mbtiDisplay = `${profile.mbtiType}${profile.variant ? `-${profile.variant}` : ""}`;
-  const sparkDisplay = `${profile.primarySpark || "—"} · ${profile.secondarySpark || "—"} · Anti: ${
-    profile.antiSpark || "—"
-  }`;
   const bigFiveDisplay = `O:${profile.bigFive.O} C:${profile.bigFive.C} E:${profile.bigFive.E} A:${profile.bigFive.A} N:${profile.bigFive.N}`;
-  const cliftonDisplay = profile.strengths.filter(Boolean).join(" · ") || "—";
+  const strengthsDisplay = profile.careerStrengths ?? []).join(" · ") || "—";
   const zodiacDisplay = `${profile.zodiacAnimal || "—"} — ${profile.zodiacElement || "—"}`;
   const optionalEnabled = new Set(profile.optionalEnabled ?? []);
   const workEnvDisplay = optionalEnabled.has("workEnv") ? profile.workEnv : "Not set";
@@ -486,13 +484,12 @@ function DashboardContent() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                   {[
                     { label: "MBTI", value: mbtiDisplay },
-                    { label: "Sparketype", value: sparkDisplay },
                     { label: "Enneagram", value: profile.enneagramType || "—" },
                     { label: "DiSC", value: profile.discStyle || "—" },
                     { label: "Big Five", value: bigFiveDisplay },
-                    { label: "CliftonStrengths", value: cliftonDisplay },
                     { label: "Chinese Zodiac", value: zodiacDisplay },
                     { label: "Astrology", value: profile.sunSign || "—" },
+                    { label: "Strengths", value: strengthsDisplay },
                   ].map(({ label, value }) => (
                     <div key={label} className="rounded-lg border border-[#E8E8E8] bg-[#F5F5F5] px-2.5 py-1.5">
                       <p className="text-[8px] font-bold text-[#888888] uppercase tracking-widest mb-0.5">{label}</p>
@@ -540,33 +537,6 @@ function DashboardContent() {
                       onChange={(v) => updateDraft("mbtiType", v)}
                       options={mbtiOptions.map((o) => ({ value: o.type, label: o.label }))}
                       placeholder="Clear selection"
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Primary Sparketype</FieldLabel>
-                    <StyledSelect
-                      value={draftProfile.primarySpark}
-                      onChange={(v) => updateDraft("primarySpark", v)}
-                      options={SPARKETYPE_OPTIONS}
-                      placeholder="Select..."
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Secondary Sparketype</FieldLabel>
-                    <StyledSelect
-                      value={draftProfile.secondarySpark}
-                      onChange={(v) => updateDraft("secondarySpark", v)}
-                      options={SPARKETYPE_OPTIONS}
-                      placeholder="Select..."
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Anti-Sparketype</FieldLabel>
-                    <StyledSelect
-                      value={draftProfile.antiSpark}
-                      onChange={(v) => updateDraft("antiSpark", v)}
-                      options={SPARKETYPE_OPTIONS}
-                      placeholder="Select..."
                     />
                   </div>
                   <div>
@@ -619,16 +589,18 @@ function DashboardContent() {
                 </div>
 
                 <div className="mt-4">
-                  <FieldLabel>CliftonStrengths (Top 5)</FieldLabel>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <StyledSelect
-                        key={i}
-                        value={draftProfile.strengths[i] ?? ""}
-                        onChange={(v) => updateDraftStrength(i, v)}
-                        options={CLIFTON_STRENGTHS}
-                        placeholder={`Strength ${i + 1}...`}
-                      />
+                    <FieldLabel>Strengths</FieldLabel>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 rounded-lg border border-[#E8E8E8] bg-cream p-2.5">
+                    {CAREER_STRENGTHS.map((s) => (
+                      <label key={s} className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={(draftProfile.careerStrengths ?? []).includes(s)}
+                          onChange={() => toggleDraftCareerStrength(s)}
+                          className="w-3.5 h-3.5 accent-[#FF5500] cursor-pointer shrink-0"
+                        />
+                        <span className="text-xs text-[#555555] group-hover:text-[#000c] transition-colors">{s}</span>
+                      </label>
                     ))}
                   </div>
                 </div>
