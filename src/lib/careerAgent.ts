@@ -39,7 +39,7 @@ const VALID_DOMAINS: CareerDomain[] = [
 ];
 
 function buildSystemPrompt(): string {
-  return `You are an expert career counsellor and personality researcher powering a career exploration platform for post-secondary students. Your task is to analyse a user's personality profile and generate highly personalised career path recommendations.
+  return `You are an expert career counsellor and personality researcher powering a career exploration platform for adults. Your task is to analyse a user's personality profile and generate highly personalised career path recommendations.
 
 ## Rules
 1. Return ONLY a valid JSON object — no markdown, no preamble, no trailing text.
