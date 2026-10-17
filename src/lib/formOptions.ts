@@ -1,17 +1,13 @@
-export const SPARKETYPE_OPTIONS = [
-  "Maker", "Performer", "Warrior", "Sage", "Advisor",
-  "Nurturer", "Investigator", "Maven", "Scientist", "Essentialist",
-].map((s) => ({ value: s, label: s }));
-
-export const CLIFTON_STRENGTHS = [
-  "Achiever", "Activator", "Adaptability", "Analytical", "Arranger",
-  "Belief", "Command", "Communication", "Competition", "Connectedness",
-  "Consistency", "Context", "Deliberative", "Developer", "Discipline",
-  "Empathy", "Focus", "Futuristic", "Harmony", "Ideation",
-  "Includer", "Individualization", "Input", "Intellection", "Learner",
-  "Maximizer", "Positivity", "Relator", "Responsibility", "Restorative",
-  "Self-Assurance", "Significance", "Strategic", "Woo",
-].map((s) => ({ value: s, label: s }));
+export const CAREER_STRENGTHS = [
+  "Building", "Crafting", "Presenting", "Entertaining", "Leading",
+  "Rallying", "Teaching", "Explaining", "Coaching", "Guiding",
+  "Caring", "Supporting", "Researching", "Questioning", "Studying",
+  "Exploring", "Problem-solving", "Troubleshooting", "Organizing", "Simplifying",
+  "Writing", "Calculating", "Interpreting data", "Coding", "Inspecting",
+  "Drawing", "Repairing", "Operating machinery", "Planning", "Budgeting",
+  "Selling", "Persuading", "Negotiating", "Mediating", "Listening",
+  "Collaborating", "Serving customers", "Translating", "Decision-making", "Multitasking",
+] as const;
 
 export const ENNEAGRAM_OPTIONS = [
   { value: "1", label: "Type 1 — Reformer" },
@@ -104,13 +100,12 @@ export const RACE_OPTIONS = [
  * three agree on the full set and its default "everything on" state. */
 export const ASSESSMENT_IDS = [
   "mbti",
-  "spark",
-  "clifton",
   "bigfive",
   "ennea",
   "disc",
   "zodiac",
   "astro",
+  "strengths",
 ] as const;
 export type AssessmentId = (typeof ASSESSMENT_IDS)[number];
 
