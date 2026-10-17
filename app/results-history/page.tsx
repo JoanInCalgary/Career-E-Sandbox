@@ -146,7 +146,7 @@ function ResultsHistoryContent() {
               // payload happens to carry a value for.
               const enabledAssessments = getEnabledAssessmentIds(entry.payload);
               const enabledOptional = new Set(entry.payload.enabledOptional ?? []);
-              const strengthsSummary = entry.payload.careerStrengths ?? []).join(", ") || "—";
+              const strengthsSummary = (entry.payload.careerStrengths ?? []).join(", ") || "—";
               const bigFiveSummary = entry.payload.bigFive
                 ? `O:${entry.payload.bigFive.O} C:${entry.payload.bigFive.C} E:${entry.payload.bigFive.E} A:${entry.payload.bigFive.A} N:${entry.payload.bigFive.N}`
                 : "—";
