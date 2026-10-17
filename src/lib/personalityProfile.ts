@@ -38,7 +38,7 @@ export interface PersonalityProfile {
   optionalEnabled: string[];
   /**
    * Which assessment frameworks (mbti, bigfive, ennea, disc, zodiac, astro
-   * strengths) the user has switched on, persisted the same way as
+   * str) the user has switched on, persisted the same way as
    * optionalEnabled so a user's toggles survive across sessions/windows
    * instead of resetting to "everything checked" on every load.
    */
@@ -49,7 +49,7 @@ export interface PersonalityProfile {
 export const EMPTY_PERSONALITY_PROFILE: PersonalityProfile = {
   mbtiType: "",
   variant: "",
-  engths: [],
+  careerStrengths: [],
   bigFive: { O: 50, C: 50, E: 50, A: 50, N: 50 },
   enneagramType: "",
   discStyle: "",
