@@ -70,7 +70,7 @@ export function countFilledAssessments(payload: FullAssessmentPayload): number {
 
   let count = 0;
   if (enabled.has("mbti") && payload.mbtiType) count++;
-  if (enabled.has("strengths") && payload.careerstrengths?.length ?? 0) > 0) count++;
+  if (enabled.has("strengths") && (payload.careerstrengths?.length ?? 0) > 0) count++;
   if (enabled.has("bigfive")) count++;
   if (enabled.has("ennea") && payload.enneagramType) count++;
   if (enabled.has("disc") && payload.discStyle) count++;
