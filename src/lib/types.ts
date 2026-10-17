@@ -10,12 +10,8 @@ export interface FullAssessmentPayload {
   // MBTI
   mbtiType: string;
   variant: "A" | "T" | "";
-  // Sparketype
-  primarySpark: string;
-  secondarySpark: string;
-  antiSpark: string;
-  // CliftonStrengths (top 5, may contain empty strings)
-  strengths: string[];
+  // Strengths (any number picked from CAREER_STRENGTHS)
+  careerStrengths: string[];
   // Big Five (0-100 each)
   bigFive: { O: number; C: number; E: number; A: number; N: number };
   // Enneagram
@@ -38,8 +34,9 @@ export interface FullAssessmentPayload {
   /** Which optional field blocks are enabled by the user */
   enabledOptional: string[];
   /**
-   * Which assessment frameworks (mbti, spark, clifton, bigfive, ennea, disc,
-   * zodiac, astro) the user wants factored into their matches. Lets users
+   * Which assessment frameworks (mbti, bigfive, ennea, disc,
+   * zodiac, astro, 
+   * strengths) the user wants factored into their matches. Lets users
    * freely toggle individual assessments on/off without clearing their
    * answers — part of the sandbox "freedom to enable/disable" design.
    */
@@ -73,13 +70,7 @@ export function countFilledAssessments(payload: FullAssessmentPayload): number {
 
   let count = 0;
   if (enabled.has("mbti") && payload.mbtiType) count++;
-  if (
-    enabled.has("spark") &&
-    (payload.primarySpark || payload.secondarySpark || payload.antiSpark)
-  ) {
-    count++;
-  }
-  if (enabled.has("clifton") && payload.strengths.some(Boolean)) count++;
+  if (enabled.has("strengths") && payload.careerstrengths?.length ?? 0) > 0) count++;
   if (enabled.has("bigfive")) count++;
   if (enabled.has("ennea") && payload.enneagramType) count++;
   if (enabled.has("disc") && payload.discStyle) count++;
